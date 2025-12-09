@@ -1,0 +1,7 @@
+﻿services:
+  monapitmdb:
+    image: monapitmdb
+    build:
+      context: .
+      dockerfile: MonApiTMDB/Dockerfile
+

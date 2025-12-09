@@ -1,0 +1,21 @@
+﻿
+Microsoft Visual Studio Solution File, Format Version 12.00
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "MonApiTMDB", "MonApiTMDB\MonApiTMDB.csproj", "{D1D5E027-D251-4F06-A888-DD0290B8CA90}"
+EndProject
+Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "Solution Items", "Solution Items", "{523C01A7-FF2D-47BA-BB46-64C3872C20F9}"
+	ProjectSection(SolutionItems) = preProject
+		compose.yaml = compose.yaml
+	EndProjectSection
+EndProject
+Global
+	GlobalSection(SolutionConfigurationPlatforms) = preSolution
+		Debug|Any CPU = Debug|Any CPU
+		Release|Any CPU = Release|Any CPU
+	EndGlobalSection
+	GlobalSection(ProjectConfigurationPlatforms) = postSolution
+		{D1D5E027-D251-4F06-A888-DD0290B8CA90}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{D1D5E027-D251-4F06-A888-DD0290B8CA90}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{D1D5E027-D251-4F06-A888-DD0290B8CA90}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{D1D5E027-D251-4F06-A888-DD0290B8CA90}.Release|Any CPU.Build.0 = Release|Any CPU
+	EndGlobalSection
+EndGlobal
