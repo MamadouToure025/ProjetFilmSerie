@@ -39,7 +39,20 @@ namespace MonApiTMDB.Controllers
             return Ok(await _tmdbService.GetTopRatedMoviesAsync("fr-FR", page));
     } 
         
-        
+        // Dans MoviesController.cs
+
+        [HttpGet("tendances")]
+        public async Task<ActionResult<TmdbResponse>> GetTrendingMovies()
+        {
+            try 
+            { 
+                return Ok(await _tmdbService.GetTrendingMoviesAsync()); 
+            } 
+            catch (Exception ex) 
+            { 
+                return StatusCode(500, ex.Message); 
+            }
+        }
         
       [HttpGet("{id:int}/credits")]
       public async Task<ActionResult<MovieCredits>> GetMovieCredits(int id)

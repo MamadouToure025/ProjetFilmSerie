@@ -13,7 +13,13 @@ namespace MonApiTMDB.Services
         Task<TmdbResponse?> SearchMovieAsync(string query, int page = 1, string language = "fr-FR");// recherche de films
         Task<TmdbResponse?>GetTopRatedMoviesAsync(string language = "fr-FR", int page = 1);// films les mieux notés
         Task<MovieCredits?> GetMovieCreditsAsync(int movieId, string language = "fr-FR");// credits d'un film
-        
+        // --- TENDANCES FILMS ---
+        Task<TmdbResponse?> GetTrendingMoviesAsync(string language = "fr-FR");
+        // --- TENDANCES  --- 
+        // Vérifiez que cette ligne existe bien :
+        Task<ActorsResponse?> GetTrendingPeopleAsync(string language = "fr-FR"); 
+        // --- SERIES TV ---
+        Task<TvShowResponse?> GetTrendingTvShowsAsync(string language = "fr-FR");
         // --- AUTH & NOTES ---
         Task<string?> CreateGuestSessionAsync();
         Task<TmdbStatusResponse?> RateMovieAsync(int movieId, double rating, string guestSessionId);
