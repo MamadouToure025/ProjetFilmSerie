@@ -34,7 +34,7 @@ namespace MonApiTMDB.Controllers
 
         // --- ENDPOINT : Films actuellement au cinéma ---
         // URL : GET /api/Movies/now-playing
-        [HttpGet("now-playing")]
+        [HttpGet("joues-en-salle")]
         public async Task<ActionResult<TmdbResponse>> GetNowPlayingMovies([FromQuery] int page = 1)
         {
             try
@@ -59,8 +59,8 @@ namespace MonApiTMDB.Controllers
         /// Recherche un acteur ou une personnalité.
         /// Exemple : GET /api/People/search?query=Tom Hanks
         /// </summary>
-        [HttpGet("search")]
-        public async Task<ActionResult<PersonResponse>> Search([FromQuery] string query, [FromQuery] int page = 1)
+        [HttpGet("recherche-acteur")]
+        public async Task<ActionResult<ActorsResponse>> Search([FromQuery] string query, [FromQuery] int page = 1)
         {
             if (string.IsNullOrWhiteSpace(query))
             {

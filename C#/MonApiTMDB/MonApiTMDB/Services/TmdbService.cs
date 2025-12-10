@@ -230,11 +230,11 @@ public async Task<Movie?> GetMovieDetailAsync(int id, string language = "fr-FR")
 // ---------------------------------------------------------
 // 8. RECHERCHE DE PERSONNE (Par Nom)
 // ---------------------------------------------------------
-public async Task<PersonResponse?> SearchPersonAsync(string query, int page = 1, string language = "fr-FR")
+public async Task<ActorsResponse?> SearchPersonAsync(string query, int page = 1, string language = "fr-FR")
 {
     var encodedQuery = Uri.EscapeDataString(query);
     var url = $"{_baseUrl}/search/person?api_key={_apiKey}&language={language}&query={encodedQuery}&page={page}";
-    return await SendRequestAsync<PersonResponse>(url);
+    return await SendRequestAsync<ActorsResponse>(url);
 }
 
 // ---------------------------------------------------------
@@ -329,27 +329,31 @@ public async Task<TmdbResponse?> SearchMovieAsync(string query, int page = 1, st
             
     return await SendRequestAsync<TmdbResponse>(url);
 }
+
 // ---------------------------------------------------------
-// 14. RECHERCHER UNE SÉRIE TV
+// 15. FILMS LES MIEUX NOTÉS (Top Rated)
 // ---------------------------------------------------------
-public async Task<TvShowResponse?> SearchTvShowAsync(string query, int page = 1, string language = "fr-FR")
+public async Task<TmdbResponse?> GetTopRatedMoviesAsync(string language = "fr-FR", int page = 1)
 {
-    var encodedQuery = Uri.EscapeDataString(query);
-    var url = $"{_baseUrl}/search/tv?api_key={_apiKey}&language={language}&query={encodedQuery}&page={page}";
-            
-    return await SendRequestAsync<TvShowResponse>(url);
+    var url = $"{_baseUrl}/movie/top_rated?api_key={_apiKey}&language={language}&page={page}";
+    return await SendRequestAsync<TmdbResponse>(url);
 }
 
-// ... (Autres méthodes) ...
+// ---------------------------------------------------------
+// 15. CRÉDITS D'UN FILM
+// ---------------------------------------------------------
 
-// ---------------------------------------------------------
-// 15. DÉTAILS D'UNE SÉRIE (Saisons, Créateurs...)
-// ---------------------------------------------------------
-public async Task<TvShowDetail?> GetTvShowDetailAsync(int id, string language = "fr-FR")
-{
-    var url = $"{_baseUrl}/tv/{id}?api_key={_apiKey}&language={language}";
-    return await SendRequestAsync<TvShowDetail>(url);
-}        // ---------------------------------------------------------
+        // Dans TmdbService.cs
+
+        public async Task<MovieCredits?> GetMovieCreditsAsync(int movieId, string language = "fr-FR")
+        {
+            // Appel direct à l'endpoint /credits de TMDB
+            var url = $"{_baseUrl}/movie/{movieId}/credits?api_key={_apiKey}&language={language}";
+            return await SendRequestAsync<MovieCredits>(url);
+        }   
+        
+        
+        // ---------------------------------------------------------
         // HELPER PRIVÉ (Générique)
         // ---------------------------------------------------------
         private async Task<T?> SendRequestAsync<T>(string url)

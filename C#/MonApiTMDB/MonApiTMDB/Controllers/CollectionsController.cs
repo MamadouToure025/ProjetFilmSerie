@@ -9,44 +9,23 @@ namespace MonApiTMDB.Controllers
     public class CollectionsController : ControllerBase
     {
         private readonly ITmdbService _tmdbService;
+        public CollectionsController(ITmdbService tmdbService) { _tmdbService = tmdbService; }
 
-        public CollectionsController(ITmdbService tmdbService)
-        {
-            _tmdbService = tmdbService;
-        }
-
-        // 1. RECHERCHE
-        [HttpGet("search")]
+        [HttpGet("recherche")]
         public async Task<ActionResult<CollectionResponse>> Search(string query, int page = 1)
         {
-            if (string.IsNullOrWhiteSpace(query)) return BadRequest("Le paramètre 'query' est obligatoire.");
-            try
-            {
-                var result = await _tmdbService.SearchCollectionAsync(query, page);
-                if (result == null || result.Results.Count == 0) return NoContent();
-                return Ok(result);
-            }
-            catch (Exception ex)
-            {
-                return StatusCode(500, ex.Message);
-            }
+            if (string.IsNullOrWhiteSpace(query)) return BadRequest("Query obligatoire.");
+            try { return Ok(await _tmdbService.SearchCollectionAsync(query, page)); } catch (Exception ex) { return StatusCode(500, ex.Message); }
         }
 
-        // 2. DÉTAILS PAR ID
-        // 👇 CORRECTION CRUCIALE ICI : {id:int}
+        // CORRECTION ICI : {id:int}
         [HttpGet("{id:int}")]
         public async Task<ActionResult<CollectionDetail>> GetCollectionDetails(int id)
         {
-            try
-            {
-                var collection = await _tmdbService.GetCollectionDetailsAsync(id);
-                if (collection == null) return NotFound($"La collection avec l'ID {id} est introuvable.");
-                return Ok(collection);
-            }
-            catch (Exception ex)
-            {
-                return StatusCode(500, ex.Message);
-            }
+            try {
+                var c = await _tmdbService.GetCollectionDetailsAsync(id);
+                return c != null ? Ok(c) : NotFound();
+            } catch (Exception ex) { return StatusCode(500, ex.Message); }
         }
     }
 }

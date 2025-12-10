@@ -2,7 +2,7 @@ using System.Text.Json.Serialization;
 
 namespace MonApiTMDB.Models;
 
-public class PersonResponse
+public class ActorsResponse
 {
     [JsonPropertyName("page")]
     public int Page { get; set; }
