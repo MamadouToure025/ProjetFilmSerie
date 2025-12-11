@@ -1,0 +1,36 @@
+.top250-intro {
+  background: rgba(255, 193, 7, 0.1);
+  padding: 2rem;
+  border-radius: 16px;
+  border: 1px solid rgba(255, 193, 7, 0.3);
+}
+
+.movies-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
+  gap: 2.5rem;
+  margin-top: 3rem;
+}
+
+.top-movie-wrapper {
+  position: relative;
+}
+
+.rank-number {
+  position: absolute;
+  top: -15px;
+  left: -15px;
+  background: #000;
+  color: #ffc107;
+  width: 60px;
+  height: 60px;
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 1.8rem;
+  font-weight: 900;
+  border: 4px solid #ffc107;
+  z-index: 10;
+  box-shadow: 0 10px 30px rgba(0, 0, 0, 0.8);
+}

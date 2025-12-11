@@ -1,0 +1,18 @@
+<div class="auth-page">
+  <div class="auth-card">
+    <h1 class="auth-title">Connexion</h1>
+    <form (ngSubmit)="login()" [formGroup]="form">
+      <input class="auth-input" formControlName="email" placeholder="Email" type="email"/>
+      <input class="auth-input" formControlName="password" placeholder="Mot de passe" type="password"/>
+
+      @if (error) {
+        <div class="auth-error">{{ error }}</div>
+      }
+
+      <button class="btn btn-primary w-100 mt-4" type="submit">Se connecter</button>
+    </form>
+    <p class="auth-link">
+      Pas de compte ? <a routerLink="/register">S'inscrire</a>
+    </p>
+  </div>
+</div>

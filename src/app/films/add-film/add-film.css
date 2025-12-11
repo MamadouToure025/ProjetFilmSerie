@@ -1,0 +1,43 @@
+.grid-2 { display: grid; grid-template-columns: 1fr 1fr; gap: 1.5rem; }
+.grid-3 { display: grid; grid-template-columns: repeat(3, 1fr); gap: 1.5rem; }
+@media (max-width: 768px) {
+  .grid-2, .grid-3 { grid-template-columns: 1fr; }
+}
+
+.input-field {
+  width: 100%;
+  padding: 0.8rem 1rem;
+  background: #222;
+  border: 1px solid #444;
+  border-radius: 8px;
+  color: white;
+  font-size: 1rem;
+}
+
+.input-field:focus {
+  outline: none;
+  border-color: #ffc107;
+  box-shadow: 0 0 0 3px rgba(255,193,7,0.2);
+}
+
+.btn {
+  padding: 0.8rem 1.5rem;
+  border-radius: 8px;
+  font-weight: bold;
+  cursor: pointer;
+  transition: all 0.3s;
+}
+.btn-primary { background: #ffc107; color: #000; border: none; }
+.btn-primary:hover { background: #e0a800; }
+.btn-outline { background: transparent; border: 2px solid #ffc107; color: #ffc107; }
+.btn-outline:hover { background: #ffc107; color: #000; }
+
+.success-msg {
+  color: #4caf50;
+  font-weight: bold;
+  font-size: 1.3rem;
+  animation: fade 3s forwards;
+}
+@keyframes fade { from { opacity: 1; } to { opacity: 0; } }
+
+.large { padding: 1rem 3rem; font-size: 1.2rem; }

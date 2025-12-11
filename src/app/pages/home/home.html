@@ -1,0 +1,31 @@
+<div class="container py-5">
+  <h1 class="text-center text-warning mb-5 display-4">MyCiné</h1>
+
+  <section class="mb-5">
+    <h2 class="text-light mb-4 fs-3">Films à venir</h2>
+    <div class="movies-grid">
+      @if (upcoming$ | async; as upcoming) {
+        @for (movie of upcoming.results; track movie.id) {
+          <app-movie-card [movie]="movie" />
+        } @empty {
+          <p class="text-muted">Aucun film à venir</p>
+        }
+      } @else {
+        <app-loading-spinner />
+      }
+    </div>
+  </section>
+
+  <section>
+    <h2 class="text-light mb-4 fs-3">Top du moment</h2>
+    <div class="movies-grid">
+      @if (topRated$ | async; as top) {
+        @for (movie of top.results; track movie.id; let i = $index) {
+          <app-movie-card [movie]="movie" [rank]="i + 1" />
+        }
+      } @else {
+        <app-loading-spinner />
+      }
+    </div>
+  </section>
+</div>

@@ -1,0 +1,29 @@
+<header class="header">
+  <div class="container">
+    <a routerLink="/" class="logo">
+  <h1>MyCiné</h1>
+  </a>
+
+  <nav class="nav-links">
+    <a routerLink="/home" routerLinkActive="active">Accueil</a>
+    <a routerLink="/search" routerLinkActive="active">Recherche</a>
+    <a routerLink="/upcoming" routerLinkActive="active">À venir</a>
+    <a routerLink="/top" routerLinkActive="active">Top 250</a>
+
+    @if (auth.isModeratorOrAdmin()) {
+      <a routerLink="/add-movie" class="btn-add">+ Ajouter film</a>
+    }
+  </nav>
+
+  <div class="auth-section">
+    @if (auth.isLoggedIn(); as user) {
+        <span class="welcome">Bienvenue {{ (auth.user$ | async)?.username }}</span>
+      <a routerLink="/profile" class="btn-profile">Profil</a>
+      <button (click)="auth.logout()" class="btn-logout">Déconnexion</button>
+    } @else {
+      <a routerLink="/login" class="btn-login">Connexion</a>
+      <a routerLink="/register" class="btn-register">Inscription</a>
+    }
+  </div>
+  </div>
+</header>

@@ -1,0 +1,139 @@
+<div class="container py-5">
+  <h1 class="text-center text-warning mb-5 display-4">Modifier la série</h1>
+
+  @if (!auth.isModeratorOrAdmin()) {
+    <div class="text-center py-5">
+      <h2 class="text-danger">Accès refusé</h2>
+      <p>Seuls les modérateurs et administrateurs peuvent modifier une série.</p>
+    </div>
+
+  } @else if (loading) {
+    <div class="text-center py-5">
+      <app-loading-spinner />
+    </div>
+
+  } @else {
+    <div class="card max-w-5xl mx-auto p-5 shadow-lg">
+
+      <form [formGroup]="form" (ngSubmit)="submit()">
+
+        <!-- ID TMDB + Nom -->
+        <div class="grid-2 mb-5">
+          <div>
+            <label class="label">ID TMDB *</label>
+            <div class="d-flex gap-3">
+              <input type="text" formControlName="tmdbId" class="input-field" placeholder="Ex: 1399" />
+              <button type="button" (click)="fetchFromTmdb()" class="btn btn-outline">
+                @if (loadingTmdb) { Chargement... } @else { TMDB }
+              </button>
+            </div>
+          </div>
+
+          <div>
+            <label class="label">Nom de la série *</label>
+            <input formControlName="name" class="input-field" />
+          </div>
+        </div>
+
+        <!-- Nom original + Première diffusion -->
+        <div class="grid-2 mb-5">
+          <div>
+            <label class="label">Nom original</label>
+            <input formControlName="originalName" class="input-field" />
+          </div>
+          <div>
+            <label class="label">Première diffusion</label>
+            <input type="date" formControlName="firstAirDate" class="input-field" />
+          </div>
+        </div>
+
+        <!-- Synopsis -->
+        <div class="mb-5">
+          <label class="label">Synopsis</label>
+          <textarea formControlName="overview" rows="6" class="input-field resize-vertical"></textarea>
+        </div>
+
+        <!-- Stats série -->
+        <div class="grid-3 mb-5">
+          <div>
+            <label class="label">Saisons</label>
+            <input type="number" formControlName="numberOfSeasons" class="input-field" />
+          </div>
+          <div>
+            <label class="label">Épisodes</label>
+            <input type="number" formControlName="numberOfEpisodes" class="input-field" />
+          </div>
+          <div>
+            <label class="label">Durée épisode (min)</label>
+            <input type="number" formControlName="episodeRuntime" class="input-field" />
+          </div>
+        </div>
+
+        <!-- Images -->
+        <div class="grid-2 mb-5">
+          <div>
+            <label class="label">Affiche (poster_path)</label>
+            <input formControlName="posterPath" class="input-field" />
+            @if (form.get('posterPath')?.value) {
+              <img [src]="tmdb.getImage(form.get('posterPath')?.value)" class="preview-img mt-3" alt="Affiche" />
+            }
+          </div>
+          <div>
+            <label class="label">Arrière-plan (backdrop_path)</label>
+            <input formControlName="backdropPath" class="input-field" />
+            @if (form.get('backdropPath')?.value) {
+              <img [src]="tmdb.getImage(form.get('backdropPath')?.value, 'w1280')" class="preview-img mt-3" alt="Backdrop" />
+            }
+          </div>
+        </div>
+
+        <!-- Créateur + Note -->
+        <div class="grid-2 mb-5">
+          <div>
+            <label class="label">Créateur / Showrunner</label>
+            <input formControlName="createdBy" class="input-field" />
+          </div>
+          <div>
+            <label class="label">Note moyenne /10</label>
+            <input type="number" step="0.1" formControlName="voteAverage" class="input-field" />
+          </div>
+        </div>
+
+        <!-- Trailer -->
+        <div class="mb-5">
+          <label class="label">Clé YouTube Trailer (ex: dQw4w9WgXcQ)</label>
+          <input formControlName="trailerUrl" class="input-field" />
+          @if (form.get('trailerUrl')?.value) {
+            <div class="mt-4">
+              <iframe
+                width="100%"
+                height="400"
+                [src]="'https://www.youtube.com/embed/' + form.get('trailerUrl')?.value | safeUrl"
+                frameborder="0"
+                allowfullscreen
+                class="rounded shadow-lg">
+              </iframe>
+            </div>
+          }
+        </div>
+
+        <!-- Boutons -->
+        <div class="text-center mt-5">
+          <button type="submit" class="btn btn-primary large mx-3" [disabled]="form.invalid">
+            Enregistrer
+          </button>
+          <button type="button" (click)="router.navigate(['/serie', serieId])" class="btn btn-outline large mx-3">
+            Annuler
+          </button>
+        </div>
+
+        @if (success) {
+          <div class="success-msg mt-4 text-center">
+            Série modifiée avec succès ! Redirection...
+          </div>
+        }
+
+      </form>
+    </div>
+  }
+</div>

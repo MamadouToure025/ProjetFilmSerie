@@ -1,0 +1,82 @@
+<div class="container py-5">
+
+  <!-- Chargement -->
+  @if (loading()) {
+    <div class="text-center py-5">
+      <app-loading-spinner />
+    </div>
+  }
+
+  <!-- Contenu principal -->
+  @if (!loading() && movie) {
+    <div class="movie-detail-grid">
+
+      <!-- Affiche -->
+      <div class="movie-poster">
+        <img
+          [src]="tmdb.getImage(movie.poster_path, 'w780')"
+          [alt]="movie.title"
+          class="poster-img rounded shadow-lg" />
+      </div>
+
+      <!-- Informations -->
+      <div class="movie-info">
+        <h1 class="movie-title">{{ movie.title }}</h1>
+
+        <div class="movie-meta">
+          <span class="year">{{ movie.release_date | date:'yyyy' }}</span>
+          <span class="separator">•</span>
+          <span class="runtime">{{ movie.runtime }} min</span>
+          <span class="separator">•</span>
+          <span class="rating-badge">{{ movie.vote_average | number:'1.1-1' }}/10</span>
+        </div>
+
+        <!-- Genres -->
+        <div class="genres mt-3">
+          @for (genre of movie.genres; track genre.id; let last = $last) {
+            <span class="genre-tag">
+              {{ genre.name }}{{ last ? '' : ', ' }}
+            </span>
+          }
+        </div>
+
+        <!-- Synopsis -->
+        <p class="movie-overview mt-4">{{ movie.overview }}</p>
+
+        <!-- Infos supplémentaires -->
+        <div class="movie-extra mt-4">
+          @if (director) {
+            <p><strong>Réalisateur :</strong> {{ director }}</p>
+          }
+        </div>
+
+        <!-- Bande-annonce -->
+        @if (getTrailerUrl()) {
+          <div class="trailer-section mt-5">
+            <h3 class="section-subtitle">Bande-annonce</h3>
+            <div class="trailer-wrapper">
+              <iframe
+                width="100%"
+                height="500"
+                [src]="getTrailerUrl()! | safeUrl"
+                frameborder="0"
+                allowfullscreen
+                class="rounded shadow-lg">
+              </iframe>
+            </div>
+          </div>
+        }
+
+      </div>
+    </div>
+  }
+
+  <!-- Film non trouvé -->
+  @if (!loading() && !movie) {
+    <div class="text-center py-5">
+      <h2 class="text-danger">Film non trouvé</h2>
+      <a routerLink="/" class="btn btn-primary mt-4">Retour à l'accueil</a>
+    </div>
+  }
+
+</div>

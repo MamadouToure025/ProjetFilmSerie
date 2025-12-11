@@ -1,0 +1,62 @@
+<div class="container py-5">
+  <h1 class="text-center text-warning mb-5 display-4">Panel Admin</h1>
+
+  @if (loading) {
+    <div class="text-center py-5">
+      <app-loading-spinner></app-loading-spinner>
+    </div>
+  } @else {
+    <div class="card p-5">
+      <h2 class="text-light mb-4">Gestion des utilisateurs ({{ users.length }})</h2>
+
+      <div class="table-responsive">
+        <table class="admin-table">
+          <thead>
+          <tr>
+            <th>ID</th>
+            <th>Nom</th>
+            <th>Email</th>
+            <th>Rôle actuel</th>
+            <th>Changer le rôle</th>
+            <th>Action</th>
+          </tr>
+          </thead>
+          <tbody>
+            @for (user of users; track user.id) {
+              <tr>
+                <td>{{ user.id }}</td>
+                <td>{{ user.username }}</td>
+                <td>{{ user.email }}</td>
+                <td>
+                  <span class="role-badge" [class.role-user]="user.role === 'USER'"
+                        [class.role-moderator]="user.role === 'MODERATOR'"
+                        [class.role-admin]="user.role === 'ADMIN'">
+                    {{ user.role }}
+                  </span>
+                </td>
+                <td>
+                  <select (change)="changeRole(user.id, $any($event.target).value)">
+                    <option value="USER">USER</option>
+                    <option value="MODERATOR">MODERATOR</option>
+                    <option value="ADMIN">ADMIN</option>
+                  </select>
+                </td>
+                <td>
+                  <button class="btn-danger small" (click)="deleteUser(user.id)">
+                    Supprimer
+                  </button>
+                </td>
+              </tr>
+            } @empty {
+              <tr>
+                <td colspan="6" class="text-center text-muted py-4">
+                  Aucun utilisateur trouvé
+                </td>
+              </tr>
+            }
+          </tbody>
+        </table>
+      </div>
+    </div>
+  }
+</div>

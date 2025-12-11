@@ -1,0 +1,114 @@
+<div class="container py-5">
+  <h1 class="text-center text-warning mb-5 display-4">Modifier le film</h1>
+
+  @if (!auth.isModeratorOrAdmin()) {
+    <div class="text-center py-5">
+      <h2 class="text-danger">Accès refusé</h2>
+      <p>Seuls les modérateurs et administrateurs peuvent modifier un film.</p>
+    </div>
+
+  } @else if (loading) {
+    <div class="text-center py-5">
+      <app-loading-spinner />
+    </div>
+
+  } @else {
+    <div class="card max-w-5xl mx-auto p-5 shadow-lg">
+
+      <form [formGroup]="form" (ngSubmit)="submit()">
+
+        <div class="grid-2 mb-5">
+          <div>
+            <label class="label">ID TMDB *</label>
+            <div class="d-flex gap-3">
+              <input type="text" formControlName="tmdbId" class="input-field" placeholder="Ex: 27205" />
+              <button type="button" (click)="fetchFromTmdb()" class="btn btn-outline flex-shrink-0">
+                @if (loadingTmdb) { Chargement... } @else { Mettre à jour TMDB }
+              </button>
+            </div>
+          </div>
+
+          <div>
+            <label class="label">Titre *</label>
+            <input formControlName="title" class="input-field" />
+          </div>
+        </div>
+
+        <div class="grid-2 mb-5">
+          <div>
+            <label class="label">Titre original</label>
+            <input formControlName="originalTitle" class="input-field" />
+          </div>
+          <div>
+            <label class="label">Date de sortie</label>
+            <input type="date" formControlName="releaseDate" class="input-field" />
+          </div>
+        </div>
+
+        <div class="mb-5">
+          <label class="label">Synopsis</label>
+          <textarea formControlName="overview" rows="5" class="input-field resize-vertical"></textarea>
+        </div>
+
+        <div class="grid-3 mb-5">
+          <div>
+            <label class="label">Durée (minutes)</label>
+            <input type="number" formControlName="runtime" class="input-field" />
+          </div>
+          <div>
+            <label class="label">Note moyenne /10</label>
+            <input type="number" step="0.1" formControlName="voteAverage" class="input-field" />
+          </div>
+          <div>
+            <label class="label">Réalisateur</label>
+            <input formControlName="director" class="input-field" />
+          </div>
+        </div>
+
+        <div class="grid-2 mb-5">
+          <div>
+            <label class="label">Affiche (poster_path)</label>
+            <input formControlName="posterPath" class="input-field" placeholder="/xyz123.jpg" />
+            @if (form.get('posterPath')?.value) {
+              <img [src]="tmdb.getImage(form.get('posterPath')?.value)" class="preview-img mt-3" />
+            }
+          </div>
+          <div>
+            <label class="label">Arrière-plan (backdrop_path)</label>
+            <input formControlName="backdropPath" class="input-field" />
+            @if (form.get('backdropPath')?.value) {
+              <img [src]="tmdb.getImage(form.get('backdropPath')?.value, 'w1280')" class="preview-img mt-3" />
+            }
+          </div>
+        </div>
+
+        <!-- Trailer -->
+        <div class="mb-5">
+          <label class="label">YouTube Trailer Key (ex: dQw4w9WgXcQ)</label>
+          <input formControlName="trailerUrl" class="input-field" />
+          @if (form.get('trailerUrl')?.value) {
+            <div class="mt-3">
+              <iframe width="100%" height="315"
+                      [src]="'https://www.youtube.com/embed/' + form.get('trailerUrl')?.value | safeUrl"
+                      frameborder="0" allowfullscreen></iframe>
+            </div>
+          }
+        </div>
+
+        <div class="text-center mt-5">
+          <button type="submit" class="btn btn-primary large mx-3"
+                  [disabled]="form.invalid">
+            Enregistrer les modifications
+          </button>
+          <button type="button" (click)="router.navigate(['/movie', filmId])" class="btn btn-outline large mx-3">
+            Annuler
+          </button>
+        </div>
+
+        @if (success) {
+          <div class="success-msg mt-4">Modifications sauvegardées !</div>
+        }
+      </form>
+    </div>
+  }
+</div>

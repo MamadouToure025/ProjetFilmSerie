@@ -1,0 +1,39 @@
+<div class="container py-5">
+  <h1 class="text-center text-warning mb-5 display-3">
+    Prochaines sorties cinéma
+  </h1>
+
+  @if (!(movies$ | async)) {
+    <div class="text-center py-5">
+      <app-loading-spinner />
+      <p class="text-muted fs-4 mt-4">Chargement des sorties...</p>
+    </div>
+  }
+
+  @if (movies$ | async; as data) {
+    @if (data.results.length > 0) {
+      <div class="upcoming-grid">
+        @for (movie of data.results; track movie.id) {
+          <div class="upcoming-card">
+            <app-movie-card [movie]="movie" />
+
+            <div class="release-info">
+              <p class="release-date">
+                {{ movie.release_date | date:'dd MMMM yyyy' }}
+              </p>
+              <p class="countdown"
+                 [class.soon]="getDaysUntil(movie.release_date) <= 7 && getDaysUntil(movie.release_date) >= 0"
+                 [class.today]="getDaysUntil(movie.release_date) === 0">
+                {{ getCountdownText(movie.release_date) }}
+              </p>
+            </div>
+          </div>
+        }
+      </div>
+    } @else {
+      <div class="text-center py-5">
+        <p class="text-muted fs-3">Aucune sortie prévue pour le moment</p>
+      </div>
+    }
+  }
+</div>

@@ -1,0 +1,86 @@
+<div class="container py-5">
+
+  @if (loading) {
+    <div class="text-center py-5">
+      <app-loading-spinner />
+    </div>
+  }
+
+  @if (person) {
+    <div class="person-detail">
+
+      <div class="person-header">
+        <div class="person-poster">
+          <img
+            [src]="tmdb.getImage(person.profile_path, 'w780')"
+            [alt]="person.name"
+            class="poster-img rounded shadow-lg" />
+        </div>
+
+        <div class="person-main-info">
+          <h1 class="person-name">{{ person.name }}</h1>
+          <p class="known-for">{{ person.known_for_department }}</p>
+
+          @if (person.birthday) {
+            <p class="birth-info">
+              Né{{ person.gender === 1 ? 'e' : '' }} le
+              {{ person.birthday | date:'longDate':'':'fr' }}
+              @if (person.place_of_birth) {
+                <span>à {{ person.place_of_birth }}</span>
+              }
+              <br>
+              <strong>Âge :</strong> {{ getAge() }}
+              @if (person.deathday) {
+                <span class="text-danger">
+                  (décédé{{ person.deathday | date:'longDate':'':'fr' }})
+                </span>
+              }
+            </p>
+          }
+        </div>
+      </div>
+
+      @if (person.biography) {
+        <section class="biography-section">
+          <h2 class="section-title">Biographie</h2>
+          <p class="biography-text">{{ person.biography }}</p>
+        </section>
+      }
+
+      @if (getCastCredits().length > 0) {
+        <section class="filmography">
+          <h2 class="section-title">
+            Filmographie — Acteur{{ person.gender === 1 ? 'ice' : '' }}
+            ({{ getCastCredits().length }} crédits)
+          </h2>
+          <div class="movies-grid">
+            @for (movie of getCastCredits().slice(0, 24); track movie.id) {
+              <app-movie-card [movie]="movie" />
+            }
+          </div>
+        </section>
+      }
+
+      @if (getDirectorCredits().length > 0) {
+        <section class="filmography">
+          <h2 class="section-title">
+            Réalisations ({{ getDirectorCredits().length }} films)
+          </h2>
+          <div class="movies-grid">
+            @for (movie of getDirectorCredits().slice(0, 12); track movie.id) {
+              <app-movie-card [movie]="movie" />
+            }
+          </div>
+        </section>
+      }
+
+    </div>
+  }
+
+  @if (!loading && !person) {
+    <div class="text-center py-5">
+      <h2 class="text-danger">Personne non trouvée</h2>
+      <a routerLink="/" class="btn btn-primary mt-4">Retour</a>
+    </div>
+  }
+</div>

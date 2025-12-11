@@ -1,0 +1,50 @@
+.admin-table {
+  width: 100%;
+  border-collapse: collapse;
+  margin-top: 1rem;
+
+  th {
+    text-align: left;
+    padding: 1rem;
+    background: #222;
+    color: #ffc107;
+    font-weight: bold;
+  }
+
+  td {
+    padding: 1rem;
+    border-bottom: 1px solid #333;
+  }
+
+  tr:hover {
+    background: #252525;
+  }
+
+  select {
+    background: #333;
+    color: white;
+    border: 1px solid #555;
+    padding: 0.5rem;
+    border-radius: 6px;
+  }
+
+  .role-badge {
+    padding: 0.4rem 0.8rem;
+    border-radius: 20px;
+    font-size: 0.8rem;
+    font-weight: bold;
+  }
+  .role-user { background: #444; color: #aaa; }
+  .role-moderator { background: #ff9800; color: black; }
+  .role-admin { background: #dc3545; color: white; }
+
+  .btn-danger.small {
+    background: #dc3545;
+    color: white;
+    border: none;
+    padding: 0.5rem 1rem;
+    border-radius: 6px;
+    font-size: 0.9rem;
+    cursor: pointer;
+  }
+}

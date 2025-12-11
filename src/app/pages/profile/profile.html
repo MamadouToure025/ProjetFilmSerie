@@ -1,0 +1,82 @@
+<div class="container py-5">
+  <div class="profile-page">
+
+    <div class="profile-card max-w-4xl mx-auto p-5 shadow-lg">
+      <div class="profile-header text-center mb-5">
+        <div class="avatar-wrapper">
+          <div class="avatar-large">
+            {{ (auth.getCurrentUser()?.username || 'U').charAt(0).toUpperCase() }}
+          </div>
+        </div>
+
+        <h1 class="profile-name">
+          {{ auth.getCurrentUser()?.username || 'Utilisateur' }}
+        </h1>
+        <p class="profile-email text-muted">
+          {{ auth.getCurrentUser()?.email }}
+        </p>
+
+        <div class="role-badge"
+             [class.admin]="auth.getCurrentUser()?.role === 'ADMIN'"
+             [class.moderator]="auth.getCurrentUser()?.role === 'MODERATOR'">
+          {{ getRoleLabel() }}
+        </div>
+      </div>
+
+      <div class="stats-grid mb-5">
+        <div class="stat-item">
+          <div class="stat-number">127</div>
+          <div class="stat-label">Films vus</div>
+        </div>
+        <div class="stat-item">
+          <div class="stat-number">42</div>
+          <div class="stat-label">Séries suivies</div>
+        </div>
+        <div class="stat-item">
+          <div class="stat-number">8.7</div>
+          <div class="stat-label">Note moyenne</div>
+        </div>
+        <div class="stat-item">
+          <div class="stat-number">312h</div>
+          <div class="stat-label">Temps passé</div>
+        </div>
+      </div>
+
+      <div class="actions text-center">
+        @if (auth.isModeratorOrAdmin()) {
+          <a routerLink="/add-movie" class="btn btn-primary mx-2">
+            Ajouter un film
+          </a>
+          <a routerLink="/add-serie" class="btn btn-primary mx-2">
+            Ajouter une série
+          </a>
+        }
+
+        @if (auth.isAdmin()) {
+          <a routerLink="/admin" class="btn btn-danger mx-2">
+            Panel Admin
+          </a>
+        }
+
+        <button (click)="auth.logout()" class="btn btn-outline-danger mx-2">
+          Déconnexion
+        </button>
+      </div>
+    </div>
+
+    <section class="mt-5">
+      <h2 class="section-title text-center">Mes derniers coups de cœur</h2>
+      <div class="movies-grid">
+        @for (item of [1,2,3,4,5,6]; track $index; let i = $index) {
+          <div class="favorite-placeholder">
+            <div class="placeholder-img"></div>
+            <p class="text-center mt-2">Film #{{ i + 1 }}</p>
+          </div>
+        } @empty {
+          <p class="text-center text-muted">Aucun favori</p>
+        }
+      </div>
+    </section>
+
+  </div>
+</div>

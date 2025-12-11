@@ -1,0 +1,19 @@
+<div class="movie-card">
+  <div class="poster-wrapper">
+    <img [src]="posterUrl" [alt]="movie.title" loading="lazy">
+
+    @if (rank) {
+      <div class="rank-badge">#{{ rank }}</div>
+    }
+  </div>
+
+  <div class="info">
+    <h3 class="title">{{ movie.title }}</h3>
+    <p class="rating">Note: {{ movie.vote_average | number:'1.1-1' }}/10</p>
+    <p class="year">{{ movie.release_date | date:'yyyy' }}</p>
+
+    <button (click)="router.navigate(['/movie', movie.id])" class="btn-details">
+      Voir le film
+    </button>
+  </div>
+</div>
