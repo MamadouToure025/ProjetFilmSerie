@@ -1,66 +1,95 @@
-// ... début du fichier Program.cs
-
+using System.Text;
+using Microsoft.AspNetCore.Authentication.JwtBearer;
+using Microsoft.EntityFrameworkCore; // AJOUTÉ
+using Microsoft.IdentityModel.Tokens;
+using MonApiTMDB.Data; // AJOUTÉ (Assurez-vous que AppDbContext est dans ce namespace)
 using MonApiTMDB.Services;
 
 var builder = WebApplication.CreateBuilder(args);
 
-// --- NOUVELLES LIGNES : Ajouter les services pour Swagger/OpenAPI ---
+// --- 1. CONFIGURATION SWAGGER ---
 builder.Services.AddEndpointsApiExplorer();
 builder.Services.AddSwaggerGen();
-// -------------------------------------------------------------------
 
-// 1. Enregistre le TmdbService et configure HttpClient
+// --- 2. CONFIGURATION BASE DE DONNEES (MySQL) ---
+// C'est la partie qui manquait dans votre fichier !
+var connectionString = builder.Configuration.GetConnectionString("DefaultConnection");
+
+builder.Services.AddDbContext<AppDbContext>(options =>
+    options.UseMySql(connectionString, ServerVersion.AutoDetect(connectionString)));
+
+// --- 3. SERVICES METIERS ---
 builder.Services.AddHttpClient<ITmdbService, TmdbService>();
+// N'oubliez pas d'injecter votre TokenService aussi !
+builder.Services.AddScoped<TokenService>(); 
 
-// 2. Ajout des Cors (pour qu'Angular puisse appeler le back-end)
+// --- 4. CORS ---
 var MyAllowSpecificOrigins = "_myAllowSpecificOrigins"; 
 builder.Services.AddCors(options =>
 {
     options.AddPolicy(name: MyAllowSpecificOrigins,
         policy =>
         {
-            // IMPORTANT : Remplacez par l'URL de votre application Angular en production.
-            // Pour le développement, on autorise 'localhost:4200' qui est la valeur par défaut d'Angular.
             policy.WithOrigins("http://localhost:4200") 
                 .AllowAnyHeader()
                 .AllowAnyMethod();
         });
 });
 
-// Add services to the container.
-builder.Services.AddControllers(); 
+// --- 5. CONFIGURATION JWT ---
+var jwtSettings = builder.Configuration.GetSection("JwtSettings");
+var secretKey = jwtSettings["SecretKey"];
 
-// ... (autres services)
+builder.Services.AddAuthentication(options =>
+    {
+        options.DefaultAuthenticateScheme = JwtBearerDefaults.AuthenticationScheme;
+        options.DefaultChallengeScheme = JwtBearerDefaults.AuthenticationScheme;
+    })
+    .AddJwtBearer(options =>
+    {
+        options.TokenValidationParameters = new TokenValidationParameters
+        {
+            ValidateIssuer = true,
+            ValidateAudience = true,
+            ValidateLifetime = true,
+            ValidateIssuerSigningKey = true,
+            ValidIssuer = jwtSettings["Issuer"],
+            ValidAudience = jwtSettings["Audience"],
+            IssuerSigningKey = new SymmetricSecurityKey(Encoding.UTF8.GetBytes(secretKey))
+        };
+
+        options.Events = new JwtBearerEvents
+        {
+            OnMessageReceived = context =>
+            {
+                if (context.Request.Cookies.ContainsKey("AuthToken"))
+                {
+                    context.Token = context.Request.Cookies["AuthToken"];
+                }
+                return Task.CompletedTask;
+            }
+        };
+    });
+
+builder.Services.AddControllers(); 
 
 var app = builder.Build();
 
-// --- NOUVELLES LIGNES : Utiliser les middlewares Swagger/SwaggerUI ---
+// --- PIPELINE HTTP ---
 
-// Configuration: Swagger n'est utilisé que dans l'environnement de développement par défaut.
 if (app.Environment.IsDevelopment())
 {
-    // 4. Active le middleware pour servir le document JSON OpenAPI
     app.UseSwagger();
-    
-    // 5. Active le middleware pour servir l'interface utilisateur de Swagger
     app.UseSwaggerUI(); 
 }
-// -------------------------------------------------------------------
 
-// ... (autres middlewares)
-
-// 3. Utilise Cors
 app.UseCors(MyAllowSpecificOrigins);
 
-// Utilise le routing
 app.UseRouting();
 
-// Utilise l'autorisation (si nécessaire)
-// app.UseAuthorization();
+app.UseAuthentication();
+app.UseAuthorization();
 
-// Mappe les contrôleurs (essentiel pour que MoviesController fonctionne)
 app.MapControllers(); 
 
 app.Run();
-
-// ... (fin du fichier Program.cs)

@@ -1,6 +1,8 @@
+using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Http.HttpResults;
 using Microsoft.AspNetCore.Mvc;
 using MonApiTMDB.Models;
+using MonApiTMDB.Models.Dtos;
 using MonApiTMDB.Services;
 
 namespace MonApiTMDB.Controllers
@@ -108,24 +110,96 @@ namespace MonApiTMDB.Controllers
             } catch (Exception ex) { return StatusCode(500, ex.Message); }
         }
 
-        [HttpGet("session-invitee")]
+// ==============================================================
+        // 1. OBTENIR UN PASS INVITÉ (Nécessaire pour voter)
+        // URL : GET api/Movies/guest-session
+        // ==============================================================
+        [Authorize]
+        [HttpGet("guest-session")]
         public async Task<ActionResult<string>> CreateGuestSession()
         {
-            try { return Ok(new { guestSessionId = await _tmdbService.CreateGuestSessionAsync() }); } catch (Exception ex) { return StatusCode(500, ex.Message); }
+            try
+            {
+                var sessionId = await _tmdbService.CreateGuestSessionAsync();
+                return Ok(new { guest_session_id = sessionId });
+            }
+            catch (Exception ex) { return StatusCode(500, ex.Message); }
         }
 
-        // CORRECTION ICI : {id:int}
-        [HttpPost("{id:int}/notation")]
-        public async Task<ActionResult<TmdbStatusResponse>> RateMovie(int id, [FromQuery] string guestSessionId, [FromBody] double rating)
+        // ==============================================================
+        // 2. NOTER UN FILM PAR NOM
+        // URL : POST api/Movies/rate/name/Superman
+        // Body : { "value": 8.5, "guest_session_id": "VOTRE_ID_ICI" }
+        // ==============================================================
+        [Authorize]
+        [HttpPost("rate/name/{name}")]
+        public async Task<ActionResult> RateMovieByName(string name, [FromBody] RatingDto rating)
         {
-            try { return Ok(await _tmdbService.RateMovieAsync(id, rating, guestSessionId)); } catch (Exception ex) { return StatusCode(500, ex.Message); }
+            if (string.IsNullOrWhiteSpace(name)) return BadRequest("Nom requis.");
+            if (string.IsNullOrWhiteSpace(rating.GuestSessionId)) return BadRequest("Guest Session ID requis.");
+
+            try
+            {
+                // A. On cherche l'ID du film
+                var search = await _tmdbService.SearchMovieAsync(name);
+                
+                // Vérification si résultats existent
+                if (search == null || search.Results == null || !search.Results.Any())
+                {
+                    return NotFound($"Film '{name}' introuvable.");
+                }
+
+                var movie = search.Results.First(); // On prend le 1er résultat
+
+                // B. On note
+                var result = await _tmdbService.RateMovieAsync(movie.Id, rating.Value, rating.GuestSessionId);
+
+                // C. Analyse réponse
+                if (result != null)
+                {
+                    // Code 1 (Success) ou 12 (Updated)
+                    if (result.StatusCode == 1 || result.StatusCode == 12)
+                        return Ok(new { message = "Film noté !", film = movie.Title, tmdb_response = result });
+                    
+                    // Sinon, c'est une erreur TMDB (ex: Session invalide)
+                    return BadRequest(result);
+                }
+                
+                return StatusCode(500, "Erreur inconnue TMDB");
+            }
+            catch (Exception ex) { return StatusCode(500, ex.Message); }
         }
 
-        // CORRECTION ICI : {id:int}
-        [HttpDelete("{id:int}/notation")]
-        public async Task<ActionResult<TmdbStatusResponse>> DeleteRating(int id, [FromQuery] string guestSessionId)
+        // ==============================================================
+        // 3. SUPPRIMER NOTE PAR NOM
+        // URL : DELETE api/Movies/rate/name/Superman?guestSessionId=...
+        // ==============================================================
+        [Authorize]
+        [HttpDelete("rate/name/{name}")]
+        public async Task<ActionResult> DeleteMovieRatingByName(string name, [FromQuery] string guestSessionId)
         {
-            try { return Ok(await _tmdbService.DeleteMovieRatingAsync(id, guestSessionId)); } catch (Exception ex) { return StatusCode(500, ex.Message); }
+            if (string.IsNullOrWhiteSpace(name)) return BadRequest("Nom requis.");
+            if (string.IsNullOrWhiteSpace(guestSessionId)) return BadRequest("Guest Session ID requis.");
+
+            try
+            {
+                var search = await _tmdbService.SearchMovieAsync(name);
+                if (search == null || search.Results == null || !search.Results.Any())
+                    return NotFound($"Film '{name}' introuvable.");
+
+                var movie = search.Results.First();
+
+                var result = await _tmdbService.DeleteMovieRatingAsync(movie.Id, guestSessionId);
+
+                // Code 13 (Deleted)
+                if (result != null && result.StatusCode == 13)
+                {
+                    return Ok(new { message = "Note supprimée !", film = movie.Title, tmdb_response = result });
+                }
+
+                return BadRequest(result);
+            }
+            catch (Exception ex) { return StatusCode(500, ex.Message); }
         }
     }
 }

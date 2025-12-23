@@ -1,4 +1,5 @@
 using MonApiTMDB.Models;
+using MonApiTMDB.Models.Dtos;
 
 namespace MonApiTMDB.Services
 {
@@ -20,10 +21,27 @@ namespace MonApiTMDB.Services
         Task<ActorsResponse?> GetTrendingPeopleAsync(string language = "fr-FR"); 
         // --- SERIES TV ---
         Task<TvShowResponse?> GetTrendingTvShowsAsync(string language = "fr-FR");
-        // --- AUTH & NOTES ---
-        Task<string?> CreateGuestSessionAsync();
-        Task<TmdbStatusResponse?> RateMovieAsync(int movieId, double rating, string guestSessionId);
-        Task<TmdbStatusResponse?> DeleteMovieRatingAsync(int movieId, string guestSessionId);
+         
+        Task<TvShowResponse?> SearchTvShowAsync(string query, int page = 1, string language = "fr-FR"); 
+            Task<TvShowResponse?> DiscoverTvShowsAsync(int? genreId, int? year, string language = "fr-FR", int page = 1);
+            Task<TvShowResponse?> GetAiringTodayTvShowsAsync(string language = "fr-FR", int page = 1);
+            Task<TvShowResponse?> GetPopularTvShowsAsync(string language = "fr-FR", int page = 1);
+            Task<TvShowDetail?> GetTvShowDetailAsync(int tvShowId, string language = "fr-FR");
+            Task<TvShowCredits?> GetTvShowCreditsAsync(int tvShowId, string language = "fr-FR");
+            
+// --- AUTH & NOTES ---
+            Task<string?> CreateGuestSessionAsync();
+
+// FILMS
+          
+            Task<TmdbStatusResponse?> RateMovieAsync(int movieId, double rating, string guestSessionId);
+            Task<TmdbStatusResponse?> DeleteMovieRatingAsync(int movieId, string guestSessionId);
+
+// SÉRIES
+      
+            Task<TmdbStatusResponse?> RateTvShowAsync(int tvShowId, double rating, string guestSessionId);
+            Task<TmdbStatusResponse?> DeleteTvShowRatingAsync(int tvShowId, string guestSessionId);
+        
 
         // --- COLLECTIONS ---
         Task<CollectionResponse?> SearchCollectionAsync(string query, int page = 1, string language = "fr-FR");
@@ -33,5 +51,8 @@ namespace MonApiTMDB.Services
         Task<ActorsResponse?> SearchPersonAsync(string query, int page = 1, string language = "fr-FR");
         Task<PersonDetail?> GetPersonDetailAsync(int personId, string language = "fr-FR");
 
+        
+        // --- COMPTE & FAVORIS ---
+       
     }
 }

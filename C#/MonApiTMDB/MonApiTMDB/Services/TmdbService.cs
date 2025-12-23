@@ -2,6 +2,7 @@ using System.Text;
 using MonApiTMDB.Models;
 using Microsoft.Extensions.Configuration;
 using System.Text.Json;
+using MonApiTMDB.Models.Dtos;
 
 namespace MonApiTMDB.Services
 {
@@ -112,116 +113,15 @@ namespace MonApiTMDB.Services
         // ---------------------------------------------------------
         // 10. DÉTAILS D'UN FILM (COMPLET)
         // ---------------------------------------------------------
+     
         public async Task<Movie?> GetMovieDetailAsync(int id, string language = "fr-FR")
         {
-            // --- APPEL 1 : INFOS GÉNÉRALES ---
-            var urlDetails = $"{_baseUrl}/movie/{id}?api_key={_apiKey}&language={language}";
-            var responseDetails = await _httpClient.GetAsync(urlDetails);
-            if (!responseDetails.IsSuccessStatusCode) return null;
-
-            using var doc = JsonDocument.Parse(await responseDetails.Content.ReadAsStringAsync());
-            var root = doc.RootElement;
-
-            var movie = new Movie
-            {
-                Id = root.GetProperty("id").GetInt32(),
-                Title = root.GetProperty("title").GetString(),
-                Overview = root.GetProperty("overview").GetString(),
-                ReleaseDate = root.TryGetProperty("release_date", out var d) ? d.GetString() : null,
-                VoteAverage = root.GetProperty("vote_average").GetDouble(),
-                PosterPath = root.TryGetProperty("poster_path", out var p) ? p.GetString() : null,
-                BackdropPath = root.TryGetProperty("backdrop_path", out var b) ? b.GetString() : null,
-                Runtime = root.TryGetProperty("runtime", out var r) && r.ValueKind != JsonValueKind.Null ? r.GetInt32() : null,
-                Budget = root.TryGetProperty("budget", out var bud) ? bud.GetInt64() : 0,
-                Revenue = root.TryGetProperty("revenue", out var rev) ? rev.GetInt64() : 0
-            };
-
-            // Collection
-            if (root.TryGetProperty("belongs_to_collection", out var coll) && coll.ValueKind != JsonValueKind.Null)
-            {
-                movie.CollectionName = coll.GetProperty("name").GetString();
-            }
-
-            // Genres
-            if (root.TryGetProperty("genres", out var genresArray))
-            {
-                var list = genresArray.EnumerateArray().Select(g => g.GetProperty("name").GetString()).Where(s => s != null);
-                movie.Genre = string.Join(", ", list);
-            }
-
-            // Production Companies
-            if (root.TryGetProperty("production_companies", out var compsArray))
-            {
-                var list = compsArray.EnumerateArray().Select(c => c.GetProperty("name").GetString()).Where(s => s != null);
-                movie.ProductionCompanies = string.Join(", ", list);
-            }
-
-            // --- APPEL 2 : CASTING & RÉALISATEUR (Sommaire pour l'objet Movie simple) ---
-            var urlCredits = $"{_baseUrl}/movie/{id}/credits?api_key={_apiKey}&language={language}";
-            var responseCredits = await _httpClient.GetAsync(urlCredits);
-            
-            if (responseCredits.IsSuccessStatusCode)
-            {
-                using var docCredits = JsonDocument.Parse(await responseCredits.Content.ReadAsStringAsync());
-                var rootCredits = docCredits.RootElement;
-
-                if (rootCredits.TryGetProperty("crew", out var crewArray))
-                {
-                    var director = crewArray.EnumerateArray().FirstOrDefault(c => c.GetProperty("job").GetString() == "Director");
-                    if (director.ValueKind != JsonValueKind.Undefined) movie.Director = director.GetProperty("name").GetString();
-                }
-
-                if (rootCredits.TryGetProperty("cast", out var castArray))
-                {
-                    var actors = castArray.EnumerateArray().Take(5).Select(a => a.GetProperty("name").GetString()).Where(s => s != null);
-                    movie.Actors = string.Join(", ", actors);
-                }
-            }
-
-            // --- APPEL 3 : TRAILER ---
-            var urlVideos = $"{_baseUrl}/movie/{id}/videos?api_key={_apiKey}&language={language}"; 
-            var responseVideos = await _httpClient.GetAsync(urlVideos);
-            
-            if (responseVideos.IsSuccessStatusCode)
-            {
-                using var docVideos = JsonDocument.Parse(await responseVideos.Content.ReadAsStringAsync());
-                if (docVideos.RootElement.TryGetProperty("results", out var vidsArray))
-                {
-                    var trailer = vidsArray.EnumerateArray()
-                                           .FirstOrDefault(v => v.GetProperty("site").GetString() == "YouTube" && v.GetProperty("type").GetString() == "Trailer");
-
-                    if (trailer.ValueKind != JsonValueKind.Undefined)
-                    {
-                        movie.TrailerUrl = $"https://www.youtube.com/watch?v={trailer.GetProperty("key").GetString()}";
-                    }
-                }
-            }
-
-            // --- APPEL 4 : DATE DE SORTIE BELGIQUE ---
-            var urlDates = $"{_baseUrl}/movie/{id}/release_dates?api_key={_apiKey}";
-            var responseDates = await _httpClient.GetAsync(urlDates);
-            
-            if (responseDates.IsSuccessStatusCode)
-            {
-                using var docDates = JsonDocument.Parse(await responseDates.Content.ReadAsStringAsync());
-                if (docDates.RootElement.TryGetProperty("results", out var datesArray))
-                {
-                    var beEntry = datesArray.EnumerateArray().FirstOrDefault(d => d.GetProperty("iso_3166_1").GetString() == "BE");
-                    if (beEntry.ValueKind != JsonValueKind.Undefined && beEntry.TryGetProperty("release_dates", out var releaseDatesList))
-                    {
-                        var firstRelease = releaseDatesList.EnumerateArray().FirstOrDefault();
-                        if (firstRelease.ValueKind != JsonValueKind.Undefined)
-                        {
-                            var fullDate = firstRelease.GetProperty("release_date").GetString();
-                            if (!string.IsNullOrEmpty(fullDate)) movie.ReleaseDateBE = fullDate.Split('T')[0];
-                        }
-                    }
-                }
-            }
-
-            return movie;
+            // On ajoute "credits,videos,images" 
+            var url = $"{_baseUrl}/movie/{id}?api_key={_apiKey}&language={language}&append_to_response=credits,videos,images&include_image_language=null,fr,en";
+    
+            // Utilisez votre méthode générique (FetchDataAsync ou SendRequestAsync)
+            return await FetchDataAsync<Movie>(url);
         }
-
         // ---------------------------------------------------------
         // 11. CRÉDITS COMPLETS (Distribution - Cast & Crew)
         // ---------------------------------------------------------
@@ -230,6 +130,7 @@ namespace MonApiTMDB.Services
             var url = $"{_baseUrl}/movie/{movieId}/credits?api_key={_apiKey}&language={language}";
             return await SendRequestAsync<MovieCredits>(url);
         }
+        
 
         // ---------------------------------------------------------
         // 12. RECHERCHE DE PERSONNE
@@ -272,40 +173,7 @@ namespace MonApiTMDB.Services
             return person;
         }
 
-        // ---------------------------------------------------------
-        // 14. AUTHENTIFICATION & NOTES
-        // ---------------------------------------------------------
-        public async Task<string?> CreateGuestSessionAsync()
-        {
-            var url = $"{_baseUrl}/authentication/guest_session/new?api_key={_apiKey}";
-            var response = await SendRequestAsync<GuestSessionResponse>(url);
-            return response?.GuestSessionId;
-        }
-
-        public async Task<TmdbStatusResponse?> RateMovieAsync(int movieId, double rating, string guestSessionId)
-        {
-            var url = $"{_baseUrl}/movie/{movieId}/rating?api_key={_apiKey}&guest_session_id={guestSessionId}";
-            var bodyObj = new { value = rating };
-            var jsonBody = JsonSerializer.Serialize(bodyObj);
-            var content = new StringContent(jsonBody, Encoding.UTF8, "application/json");
-
-            var response = await _httpClient.PostAsync(url, content);
-            response.EnsureSuccessStatusCode();
-
-            var jsonString = await response.Content.ReadAsStringAsync();
-            return JsonSerializer.Deserialize<TmdbStatusResponse>(jsonString, new JsonSerializerOptions { PropertyNameCaseInsensitive = true });
-        }
-
-        public async Task<TmdbStatusResponse?> DeleteMovieRatingAsync(int movieId, string guestSessionId)
-        {
-            var url = $"{_baseUrl}/movie/{movieId}/rating?api_key={_apiKey}&guest_session_id={guestSessionId}";
-            var response = await _httpClient.DeleteAsync(url);
-            response.EnsureSuccessStatusCode();
-
-            var jsonString = await response.Content.ReadAsStringAsync();
-            return JsonSerializer.Deserialize<TmdbStatusResponse>(jsonString, new JsonSerializerOptions { PropertyNameCaseInsensitive = true });
-        }
-
+   
         // ---------------------------------------------------------
         // 15. COLLECTIONS
         // ---------------------------------------------------------
@@ -321,19 +189,248 @@ namespace MonApiTMDB.Services
             // Implémentation basique si nécessaire
             throw new NotImplementedException();
         }
+// ---------------------------------------------------------
+// RECHERCHE DE SÉRIES TV
+// ---------------------------------------------------------
+        public async Task<TvShowResponse?> SearchTvShowAsync(string query, int page = 1, string language = "fr-FR")
+        {
+            var encodedQuery = Uri.EscapeDataString(query);
+            var url = $"{_baseUrl}/search/tv?api_key={_apiKey}&language={language}&query={encodedQuery}&page={page}";
+    
+            // On réutilise votre méthode générique SendRequestAsync
+            return await SendRequestAsync<TvShowResponse>(url);
+        }
+        
+        // ---------------------------------------------------------
+// DÉCOUVRIR DES SÉRIES (FILTRES)
+// ---------------------------------------------------------
+        public async Task<TvShowResponse?> DiscoverTvShowsAsync(int? genreId, int? year, string language = "fr-FR", int page = 1)
+        {
+            // On trie par popularité décroissante par défaut
+            var url = $"{_baseUrl}/discover/tv?api_key={_apiKey}&language={language}&sort_by=popularity.desc&page={page}";
 
+            // Filtre par Genre
+            if (genreId.HasValue) 
+            {
+                url += $"&with_genres={genreId.Value}";
+            }
+
+            // Filtre par Année de sortie (first_air_date_year pour les séries)
+            if (year.HasValue) 
+            {
+                url += $"&first_air_date_year={year.Value}";
+            }
+
+            return await SendRequestAsync<TvShowResponse>(url);
+        } 
+        
+        // ---------------------------------------------------------
+// SÉRIES DIFFUSÉES AUJOURD'HUI (Airing Today)
+// ---------------------------------------------------------
+        public async Task<TvShowResponse?> GetAiringTodayTvShowsAsync(string language = "fr-FR", int page = 1)
+        {
+            // L'endpoint est /tv/airing_today
+            // On peut ajouter &timezone=Europe/Brussels si on veut être précis sur le fuseau horaire
+            var url = $"{_baseUrl}/tv/airing_today?api_key={_apiKey}&language={language}&page={page}";
+    
+            return await SendRequestAsync<TvShowResponse>(url);
+        }
+        
+        // ---------------------------------------------------------
+        // SÉRIES POPULAIRES
+        // ---------------------------------------------------------
+        public async Task<TvShowResponse?> GetPopularTvShowsAsync(string language = "fr-FR", int page = 1)
+        {
+            var url = $"{_baseUrl}/tv/popular?api_key={_apiKey}&language={language}&page={page}";
+            return await SendRequestAsync<TvShowResponse>(url);
+        }
+        
+        // ---------------------------------------------------------
+        // SÉRIES DETAILS
+        // --------------------------------------------------------- 
+        // 2. LA MÉTHODE POUR LES DÉTAILS DE LA SÉRIE
+// Elle appelle SendRequestAsync avec les paramètres pour Images, Vidéos et Crédits
+        public async Task<TvShowDetail?> GetTvShowDetailAsync(int tvShowId, string language = "fr-FR")
+        {
+            var url = $"{_baseUrl}/tv/{tvShowId}?api_key={_apiKey}&language={language}&append_to_response=credits,videos,images&include_image_language=null,fr,en";
+    
+            // On utilise bien le nom "SendRequestAsync" ici
+            return await SendRequestAsync<TvShowDetail>(url);
+        
+        }
+
+        // ---------------------------------------------------------
+        // SÉRIES CREDITS
+        // --------------------------------------------------------- 
+        
+        public async Task<TvShowCredits?> GetTvShowCreditsAsync(int tvShowId, string language = "fr-FR")
+        {
+            var url = $"{_baseUrl}/tv/{tvShowId}/credits?api_key={_apiKey}&language={language}";
+            return await _httpClient.GetFromJsonAsync<TvShowCredits>(url);
+        }
+
+        
+        // ==============================================================
+    // 1. GESTION DES SESSIONS (AUTH)
+    // ==============================================================
+    public async Task<string?> CreateGuestSessionAsync()
+    {
+        var url = $"{_baseUrl}/authentication/guest_session/new?api_key={_apiKey}";
+        var response = await _httpClient.GetAsync(url);
+        response.EnsureSuccessStatusCode();
+        
+        var json = await response.Content.ReadAsStringAsync();
+        using var doc = JsonDocument.Parse(json);
+        if (doc.RootElement.TryGetProperty("guest_session_id", out var idElement))
+        {
+            return idElement.GetString();
+        }
+        return null;
+    }
+
+    // ==============================================================
+    // 2. GESTION DES NOTES (FILMS)
+    // ==============================================================
+
+    public async Task<TmdbStatusResponse?> RateMovieAsync(int movieId, double rating, string guestSessionId)
+    {
+        var url = $"{_baseUrl}/movie/{movieId}/rating?api_key={_apiKey}&guest_session_id={guestSessionId}";
+        
+        // Construction du Body JSON strict : { "value": 8.5 }
+        var payload = new { value = rating };
+        var jsonBody = JsonSerializer.Serialize(payload);
+        var content = new StringContent(jsonBody, Encoding.UTF8, "application/json");
+
+        var response = await _httpClient.PostAsync(url, content);
+        
+        // On lit la réponse PEU IMPORTE le code (Succès ou Erreur 401/404)
+        var jsonResponse = await response.Content.ReadAsStringAsync();
+        return JsonSerializer.Deserialize<TmdbStatusResponse>(jsonResponse);
+    }
+
+    public async Task<TmdbStatusResponse?> DeleteMovieRatingAsync(int movieId, string guestSessionId)
+    {
+        var url = $"{_baseUrl}/movie/{movieId}/rating?api_key={_apiKey}&guest_session_id={guestSessionId}";
+        
+        var response = await _httpClient.DeleteAsync(url);
+        
+        var jsonResponse = await response.Content.ReadAsStringAsync();
+        return JsonSerializer.Deserialize<TmdbStatusResponse>(jsonResponse);
+    }
+
+ 
+
+    // ==============================================================
+    // 3. GESTION DES NOTES (SÉRIES)
+    // ==============================================================
+
+    public async Task<TmdbStatusResponse?> RateTvShowAsync(int tvShowId, double rating, string guestSessionId)
+    {
+        var url = $"{_baseUrl}/tv/{tvShowId}/rating?api_key={_apiKey}&guest_session_id={guestSessionId}";
+        
+        var payload = new { value = rating };
+        var jsonBody = JsonSerializer.Serialize(payload);
+        var content = new StringContent(jsonBody, Encoding.UTF8, "application/json");
+
+        var response = await _httpClient.PostAsync(url, content);
+        
+        var jsonResponse = await response.Content.ReadAsStringAsync();
+        return JsonSerializer.Deserialize<TmdbStatusResponse>(jsonResponse);
+    }
+
+    public async Task<TmdbStatusResponse?> DeleteTvShowRatingAsync(int tvShowId, string guestSessionId)
+    {
+        var url = $"{_baseUrl}/tv/{tvShowId}/rating?api_key={_apiKey}&guest_session_id={guestSessionId}";
+        
+        var response = await _httpClient.DeleteAsync(url);
+        
+        var jsonResponse = await response.Content.ReadAsStringAsync();
+        return JsonSerializer.Deserialize<TmdbStatusResponse>(jsonResponse);
+    }
+
+ 
+        
+ 
+        
         // ---------------------------------------------------------
         // MÉTHODE GÉNÉRIQUE (HELPER)
         // ---------------------------------------------------------
+        // 1. LA MÉTHODE GÉNÉRIQUE (HELPER)
+// Elle gère l'appel HTTP et la désérialisation JSON
         private async Task<T?> SendRequestAsync<T>(string url)
         {
-            var response = await _httpClient.GetAsync(url);
-            response.EnsureSuccessStatusCode();
+            try 
+            {
+                var response = await _httpClient.GetAsync(url);
+                if (!response.IsSuccessStatusCode) return default;
 
-            var jsonString = await response.Content.ReadAsStringAsync();
-            var options = new JsonSerializerOptions { PropertyNameCaseInsensitive = true };
-            
-            return JsonSerializer.Deserialize<T>(jsonString, options);
+                var json = await response.Content.ReadAsStringAsync();
+        
+                // Options pour éviter les erreurs de majuscules/minuscules
+                var options = new JsonSerializerOptions 
+                { 
+                    PropertyNameCaseInsensitive = true 
+                };
+        
+                return JsonSerializer.Deserialize<T>(json, options);
+            }
+            catch 
+            { 
+                return default; 
+            }
         }
+
+// ==============================================================
+// METHODE PRIVÉE (HELPER) INDISPENSABLE
+// C'est elle qui fait le travail technique pour GetMovieDetailAsync, etc.
+// ==============================================================
+        private async Task<T?> FetchDataAsync<T>(string url)
+        {
+            try
+            {
+                // 1. On envoie la requête
+                var response = await _httpClient.GetAsync(url);
+        
+                // 2. Si l'API répond une erreur (404, 500...), on renvoie null/vide
+                if (!response.IsSuccessStatusCode) return default;
+
+                // 3. On lit le JSON
+                var json = await response.Content.ReadAsStringAsync();
+        
+                // 4. On configure les options (pour ignorer les majuscules/minuscules)
+                var options = new JsonSerializerOptions 
+                { 
+                    PropertyNameCaseInsensitive = true 
+                };
+
+                // 5. On transforme le JSON en objet C# (Movie, TvShowDetail, etc.)
+                return JsonSerializer.Deserialize<T>(json, options);
+            }
+            catch
+            {
+                // En cas de crash réseau ou autre, on renvoie null pour ne pas planter l'API
+                return default;
+            }
+        }
+        
+ 
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
     }
 }
