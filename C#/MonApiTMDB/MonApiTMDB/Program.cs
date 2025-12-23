@@ -1,95 +1,89 @@
 using System.Text;
 using Microsoft.AspNetCore.Authentication.JwtBearer;
-using Microsoft.EntityFrameworkCore; // AJOUTÉ
+using Microsoft.EntityFrameworkCore;
 using Microsoft.IdentityModel.Tokens;
-using MonApiTMDB.Data; // AJOUTÉ (Assurez-vous que AppDbContext est dans ce namespace)
+using MonApiTMDB.Data;
 using MonApiTMDB.Services;
 
 var builder = WebApplication.CreateBuilder(args);
 
-// --- 1. CONFIGURATION SWAGGER ---
-builder.Services.AddEndpointsApiExplorer();
-builder.Services.AddSwaggerGen();
+// --- 1. CONFIGURATION BASE DE DONNÉES (MySQL) ---
+var connectionString = builder.Configuration.GetConnectionString("DefaultConnection") 
+    ?? throw new InvalidOperationException("Chaîne de connexion introuvable.");
 
-// --- 2. CONFIGURATION BASE DE DONNEES (MySQL) ---
-// C'est la partie qui manquait dans votre fichier !
-var connectionString = builder.Configuration.GetConnectionString("DefaultConnection");
-
+// On utilise UseMySql avec l'auto-détection de version
 builder.Services.AddDbContext<AppDbContext>(options =>
     options.UseMySql(connectionString, ServerVersion.AutoDetect(connectionString)));
 
-// --- 3. SERVICES METIERS ---
+// --- 2. SERVICES ---
 builder.Services.AddHttpClient<ITmdbService, TmdbService>();
-// N'oubliez pas d'injecter votre TokenService aussi !
-builder.Services.AddScoped<TokenService>(); 
+builder.Services.AddScoped<TokenService>();
+builder.Services.AddControllers();
+builder.Services.AddEndpointsApiExplorer();
+builder.Services.AddSwaggerGen();
 
-// --- 4. CORS ---
-var MyAllowSpecificOrigins = "_myAllowSpecificOrigins"; 
-builder.Services.AddCors(options =>
-{
-    options.AddPolicy(name: MyAllowSpecificOrigins,
-        policy =>
-        {
-            policy.WithOrigins("http://localhost:4200") 
-                .AllowAnyHeader()
-                .AllowAnyMethod();
-        });
-});
-
-// --- 5. CONFIGURATION JWT ---
-var jwtSettings = builder.Configuration.GetSection("JwtSettings");
-var secretKey = jwtSettings["SecretKey"];
+// --- 3. AUTHENTIFICATION JWT ---
+var jwtSection = builder.Configuration.GetSection("JwtSettings");
+// Clé de secours si non trouvée dans appsettings (pour le dev)
+var secretKey = jwtSection["SecretKey"] ?? "MA_CLE_SECRETE_TRES_LONGUE_123456789"; 
 
 builder.Services.AddAuthentication(options =>
+{
+    options.DefaultAuthenticateScheme = JwtBearerDefaults.AuthenticationScheme;
+    options.DefaultChallengeScheme = JwtBearerDefaults.AuthenticationScheme;
+})
+.AddJwtBearer(options =>
+{
+    options.TokenValidationParameters = new TokenValidationParameters
     {
-        options.DefaultAuthenticateScheme = JwtBearerDefaults.AuthenticationScheme;
-        options.DefaultChallengeScheme = JwtBearerDefaults.AuthenticationScheme;
-    })
-    .AddJwtBearer(options =>
+        ValidateIssuerSigningKey = true,
+        IssuerSigningKey = new SymmetricSecurityKey(Encoding.UTF8.GetBytes(secretKey)),
+        ValidateIssuer = false, 
+        ValidateAudience = false,
+        ValidateLifetime = true
+    };
+    
+    // Lire le token depuis le Cookie (Optionnel, pratique pour le Web)
+    options.Events = new JwtBearerEvents
     {
-        options.TokenValidationParameters = new TokenValidationParameters
+        OnMessageReceived = context =>
         {
-            ValidateIssuer = true,
-            ValidateAudience = true,
-            ValidateLifetime = true,
-            ValidateIssuerSigningKey = true,
-            ValidIssuer = jwtSettings["Issuer"],
-            ValidAudience = jwtSettings["Audience"],
-            IssuerSigningKey = new SymmetricSecurityKey(Encoding.UTF8.GetBytes(secretKey))
-        };
-
-        options.Events = new JwtBearerEvents
-        {
-            OnMessageReceived = context =>
+            if (context.Request.Cookies.ContainsKey("AuthToken"))
             {
-                if (context.Request.Cookies.ContainsKey("AuthToken"))
-                {
-                    context.Token = context.Request.Cookies["AuthToken"];
-                }
-                return Task.CompletedTask;
+                context.Token = context.Request.Cookies["AuthToken"];
             }
-        };
-    });
+            return Task.CompletedTask;
+        }
+    };
+});
 
-builder.Services.AddControllers(); 
+// --- 4. CORS (Pour Angular/React) ---
+builder.Services.AddCors(options =>
+{
+    options.AddPolicy("AllowAll", policy =>
+    {
+        policy.WithOrigins("http://localhost:4200")
+              .AllowAnyHeader()
+              .AllowAnyMethod()
+              .AllowCredentials();
+    });
+});
 
 var app = builder.Build();
 
-// --- PIPELINE HTTP ---
+// --- PIPELINE ---
 
 if (app.Environment.IsDevelopment())
 {
     app.UseSwagger();
-    app.UseSwaggerUI(); 
+    app.UseSwaggerUI();
 }
 
-app.UseCors(MyAllowSpecificOrigins);
-
-app.UseRouting();
+app.UseCors("AllowAll");
 
 app.UseAuthentication();
 app.UseAuthorization();
 
-app.MapControllers(); 
+app.MapControllers();
 
 app.Run();
