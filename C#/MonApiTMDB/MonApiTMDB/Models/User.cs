@@ -1,14 +1,11 @@
-using System.ComponentModel.DataAnnotations;
-
 namespace MonApiTMDB.Models
 {
     public class User
     {
-        [Key]
-        public int Id { get; set; } // Votre ID est un int
-        public string Username { get; set; }
+        public int Id { get; set; }
+        public string Username { get; set; } // <--- Vérifiez que cette ligne existe
         public string Email { get; set; }
         public string Password { get; set; }
-        public string Role { get; set; } = "User";
+        public string Role { get; set; } = "User"; // <--- Et celle-ci
     }
 }

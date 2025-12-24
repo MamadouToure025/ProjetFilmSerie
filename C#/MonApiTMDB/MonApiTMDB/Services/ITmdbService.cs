@@ -29,6 +29,8 @@ namespace MonApiTMDB.Services
             Task<TvShowDetail?> GetTvShowDetailAsync(int tvShowId, string language = "fr-FR");
             Task<TvShowCredits?> GetTvShowCreditsAsync(int tvShowId, string language = "fr-FR");
             
+            // --- SAISONS TV ---
+            Task<TvSeasonDetail?> GetTvSeasonAsync(int seriesId, int seasonNumber);
 // --- AUTH & NOTES ---
             Task<string?> CreateGuestSessionAsync();
 
@@ -49,7 +51,12 @@ namespace MonApiTMDB.Services
         
         // --- PERSONNES ---
         Task<ActorsResponse?> SearchPersonAsync(string query, int page = 1, string language = "fr-FR");
-        Task<PersonDetail?> GetPersonDetailAsync(int personId, string language = "fr-FR");
+        // Ajoutez le paramètre optionnel string language = "fr-FR"
+        Task<PersonCreditsResponse?> GetPersonCreditsAsync(int personId, string language = "fr-FR");
+        Task<ActorsResponse?> SearchActorsAsync(string query);
+        Task<PersonDetail?> GetPersonDetailAsync(int personId);
+       
+        
 
         
         // --- COMPTE & FAVORIS ---

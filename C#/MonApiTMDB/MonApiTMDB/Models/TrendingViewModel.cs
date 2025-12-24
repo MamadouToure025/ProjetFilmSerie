@@ -11,6 +11,6 @@ namespace MonApiTMDB.Models
         public List<TvShow> TvShows { get; set; } = new();
 
         // Liste des personnes (acteurs) en vogue
-        public List<Person> People { get; set; } = new();
+        public List<PersonDetail> People { get; set; } = new();
     }
 }

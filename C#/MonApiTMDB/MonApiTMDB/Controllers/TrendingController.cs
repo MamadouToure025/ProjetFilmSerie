@@ -35,7 +35,7 @@ namespace MonApiTMDB.Controllers
                     // On récupère la liste .Results, ou une liste vide si null
                     Movies = (await moviesTask)?.Results ?? new List<Movie>(),
                     TvShows = (await tvTask)?.Results ?? new List<TvShow>(),
-                    People = (await peopleTask)?.Results ?? new List<Person>()
+                    People = (await peopleTask)?.Results ?? new List<PersonDetail>(),
                 };
 
                 return Ok(viewModel);

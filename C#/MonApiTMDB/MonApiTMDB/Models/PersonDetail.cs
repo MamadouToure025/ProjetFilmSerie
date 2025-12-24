@@ -22,8 +22,8 @@ namespace MonApiTMDB.Models
         [JsonPropertyName("profile_path")]
         public string? ProfilePath { get; set; }
 
-        // Filmographie de l'acteur (ajouté manuellement via un 2ème appel)
+        // C'est ici qu'on stocke la filmographie
         [JsonPropertyName("credits")]
-        public List<Movie> Credits { get; set; } = new();
+        public List<PersonCredit> Credits { get; set; } = new();
     }
 }

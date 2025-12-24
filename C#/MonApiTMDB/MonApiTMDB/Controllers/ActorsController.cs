@@ -4,28 +4,45 @@ using MonApiTMDB.Services;
 
 namespace MonApiTMDB.Controllers
 {
-    [Route("api/[controller]")]
     [ApiController]
+    [Route("api/v1/[controller]")]
     public class ActorsController : ControllerBase
     {
         private readonly ITmdbService _tmdbService;
-        public ActorsController(ITmdbService tmdbService) { _tmdbService = tmdbService; }
 
-        [HttpGet("recherche")]
-        public async Task<ActionResult<ActorsResponse>> Search([FromQuery] string query, [FromQuery] int page = 1)
+        public ActorsController(ITmdbService tmdbService)
         {
-            if (string.IsNullOrWhiteSpace(query)) return BadRequest("Nom obligatoire.");
-            try { return Ok(await _tmdbService.SearchPersonAsync(query, page)); } catch (Exception ex) { return StatusCode(500, ex.Message); }
+            _tmdbService = tmdbService;
         }
 
-        // CORRECTION ICI : {id:int}
-        [HttpGet("{id:int}")]
-        public async Task<ActionResult<PersonDetail>> GetPerson(int id)
+        // ==========================================
+        // 1. RECHERCHER UN ACTEUR
+        // GET api/v1/Actors/search?query=Brad
+        // ==========================================
+        [HttpGet("search")]
+        public async Task<ActionResult<List<PersonDetail>>> Search(string query)
         {
-            try {
-                var p = await _tmdbService.GetPersonDetailAsync(id);
-                return p != null ? Ok(p) : NotFound();
-            } catch (Exception ex) { return StatusCode(500, ex.Message); }
+            if (string.IsNullOrWhiteSpace(query)) return BadRequest("Veuillez saisir un nom.");
+
+            var response = await _tmdbService.SearchActorsAsync(query);
+            return Ok(response?.Results ?? new List<PersonDetail>());
+        }
+
+        // ==========================================
+        // 2. DÉTAILS D'UN ACTEUR (Avec ses films)
+        // GET api/v1/Actors/117642
+        // ==========================================
+        [HttpGet("{id}")]
+        public async Task<ActionResult<PersonDetail>> GetActor(int id)
+        {
+            var actor = await _tmdbService.GetPersonDetailAsync(id);
+
+            if (actor == null)
+            {
+                return NotFound("Acteur introuvable.");
+            }
+
+            return Ok(actor);
         }
     }
 }

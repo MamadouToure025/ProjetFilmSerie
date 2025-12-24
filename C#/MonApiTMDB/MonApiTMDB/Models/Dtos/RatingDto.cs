@@ -1,12 +1,21 @@
 using System.Text.Json.Serialization;
 
-namespace MonApiTMDB.Models.Dtos;
-
-public class RatingDto
+namespace MonApiTMDB.Models.Dtos
 {
-    [JsonPropertyName("value")]
-    public double Value { get; set; } // Note entre 0.5 et 10
+    // C'est l'objet utilisé pour ENVOYER une note (POST)
+    public class RatingDto
+    {
+        [JsonPropertyName("mediaId")]
+        public int MediaId { get; set; } // <--- C'est ce champ qui manque et qui est rouge
 
-    [JsonPropertyName("guest_session_id")]
-    public string GuestSessionId { get; set; } // L'ID de session TMDB
+        [JsonPropertyName("mediaType")]
+        public string MediaType { get; set; } // <--- Celui-ci aussi
+
+        [JsonPropertyName("value")]
+        public int Value { get; set; }
+        
+        //GuestSessionId
+        [JsonPropertyName("guestSessionId")]
+        public string GuestSessionId { get; set; }
+    }
 }

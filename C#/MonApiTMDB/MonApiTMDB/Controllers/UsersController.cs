@@ -1,83 +1,139 @@
 using Microsoft.AspNetCore.Authorization;
-using Microsoft.AspNetCore.Identity;
 using Microsoft.AspNetCore.Mvc;
-using Microsoft.EntityFrameworkCore; // Important pour .ToListAsync()
-using MonApiTMDB.Models.Dtos;
-
-// Assurez-vous d'importer votre classe User personnalisée si vous en avez une (ex: ApplicationUser)
-// Sinon, utilisez IdentityUser
-using Microsoft.AspNetCore.Identity; 
-
-namespace MonApiTMDB.Controllers
+using Microsoft.EntityFrameworkCore;
+using MonApiTMDB.Data;
+using MonApiTMDB.Models;       // <--- INDISPENSABLE pour "User"
+using MonApiTMDB.Models.Dtos;  // <--- INDISPENSABLE pour "CreateAdminDto"
+using System.Security.Claims;namespace MonApiTMDB.Controllers
 {
     [ApiController]
-    [Route("api/[controller]")]
-    [Authorize(Roles = "Admin")] // <--- SÉCURITÉ : Seuls les Admins passent ici
+    [Route("api/v1/[controller]")]
+    // SÉCURITÉ MAXIMALE : Seul un Admin peut entrer ici
+    [Authorize(Roles = "Admin")]
     public class UsersController : ControllerBase
     {
-        // Remplacez IdentityUser par votre classe (ex: ApplicationUser) si vous l'avez étendue
-        private readonly UserManager<IdentityUser> _userManager;
+        private readonly AppDbContext _context;
 
-        public UsersController(UserManager<IdentityUser> userManager)
+        public UsersController(AppDbContext context)
         {
-            _userManager = userManager;
+            _context = context;
         }
 
         // ==========================================
-        // LISTER TOUS LES UTILISATEURS
-        // URL : GET api/Users
+        // 1. LISTER TOUS LES UTILISATEURS
+        // GET api/v1/Users
         // ==========================================
         [HttpGet]
         public async Task<ActionResult<IEnumerable<UserDto>>> GetAllUsers()
         {
-            try
+            // On récupère tout le monde depuis la BDD
+            var users = await _context.Users.ToListAsync();
+
+            // On transforme en DTO (pour cacher les mots de passe)
+            var userDtos = users.Select(u => new UserDto
             {
-                // 1. Récupérer tous les users de la BDD
-                var users = await _userManager.Users.ToListAsync();
-                var userDtos = new List<UserDto>();
+                Id = u.Id,
+                Username = u.Username,
+                Email = u.Email,
+                Role = u.Role
+            });
 
-                // 2. Transformer chaque User en UserDto
-                foreach (var user in users)
-                {
-                    // On récupère les rôles de cet utilisateur spécifique
-                    var roles = await _userManager.GetRolesAsync(user);
-
-                    userDtos.Add(new UserDto
-                    {
-                        Id = user.Id,
-                        UserName = user.UserName,
-                        Email = user.Email,
-                        Roles = roles
-                    });
-                }
-
-                return Ok(userDtos);
-            }
-            catch (Exception ex)
-            {
-                return StatusCode(500, $"Erreur interne : {ex.Message}");
-            }
+            return Ok(userDtos);
         }
-
+// ==========================================
+        // 4. CRÉER UN NOUVEL ADMIN (Réservé aux Admins)
+        // POST api/v1/Users/admin
         // ==========================================
-        // (OPTIONNEL) SUPPRIMER UN USER
-        // URL : DELETE api/Users/{id}
-        // ==========================================
-        [HttpDelete("{id}")]
-        public async Task<ActionResult> DeleteUser(string id)
+        [HttpPost("admin")]
+        [Authorize(Roles = "Admin")] // <--- SÉCURITÉ CRITIQUE
+        public async Task<ActionResult> CreateAdmin([FromBody] CreateAdminDto request)
         {
-            var user = await _userManager.FindByIdAsync(id);
+            // 1. Vérifier si l'utilisateur ou l'email existe déjà
+            if (await _context.Users.AnyAsync(u => u.Username == request.Username || u.Email == request.Email))
+            {
+                return BadRequest("Ce nom d'utilisateur ou cet email est déjà utilisé.");
+            }
+
+            // 2. Création du nouvel Admin
+            var newAdmin = new User
+            {
+                Username = request.Username,
+                Email = request.Email,
+                Password = request.Password, // Pensez à hacher le mot de passe dans un vrai projet
+                Role = "Admin" // <--- ON FORCE LE RÔLE ADMIN ICI
+            };
+
+            // 3. Sauvegarde
+            _context.Users.Add(newAdmin);
+            await _context.SaveChangesAsync();
+
+            return Ok(new { message = $"L'administrateur {newAdmin.Username} a été créé avec succès." });
+        }
+// ==========================================
+        // 1. MODIFIER SON PROPRE PROFIL (Pour tout le monde)
+        // PUT api/v1/Users/profile
+        // ==========================================
+        [HttpPut("profile")]
+        public async Task<ActionResult> UpdateProfile([FromBody] UserUpdateDto request)
+        {
+            // 1. Identifier l'utilisateur connecté via son Token
+            var userIdString = User.FindFirst(ClaimTypes.NameIdentifier)?.Value;
+            if (!int.TryParse(userIdString, out int userId)) return Unauthorized();
+
+            // 2. Récupérer l'utilisateur en BDD
+            var user = await _context.Users.FindAsync(userId);
             if (user == null) return NotFound("Utilisateur introuvable.");
 
-            // Empêcher de se supprimer soi-même (optionnel mais conseillé)
-            if (User.Identity?.Name == user.UserName)
-                return BadRequest("Vous ne pouvez pas supprimer votre propre compte admin ici.");
+            // 3. Mise à jour des champs (si fournis)
+            if (!string.IsNullOrWhiteSpace(request.Username))
+            {
+               
+                if (await _context.Users.AnyAsync(u => u.Username == request.Username && u.Id != userId))
+                {
+                    return BadRequest("Ce nom d'utilisateur est déjà pris.");
+                }
+                user.Username = request.Username;
+            }
 
-            var result = await _userManager.DeleteAsync(user);
+            if (!string.IsNullOrWhiteSpace(request.Password))
+            {
+                // Note : Idéalement, il faudrait hacher le mot de passe ici
+                user.Password = request.Password;
+            }
 
-            if (!result.Succeeded) return BadRequest("Erreur lors de la suppression.");
+            // 4. Sauvegarder
+            await _context.SaveChangesAsync();
 
-            return Ok(new { message = $"Utilisateur {user.UserName} supprimé." });
+            return Ok(new { message = "Profil mis à jour avec succès.", username = user.Username });
+        }
+
+    // ==========================================
+        // 2. SUPPRIMER UN UTILISATEUR
+        // DELETE api/v1/Users/5
+        // ==========================================
+        [HttpDelete("{id}")]
+        public async Task<ActionResult> DeleteUser(int id)
+        {
+            // 1. Chercher l'utilisateur à supprimer
+            var userToDelete = await _context.Users.FindAsync(id);
+            if (userToDelete == null) return NotFound("Utilisateur introuvable.");
+
+            // 2. SÉCURITÉ : Qui est connecté ?
+            var currentUserIdString = User.FindFirst(ClaimTypes.NameIdentifier)?.Value;
+            if (int.TryParse(currentUserIdString, out int currentUserId))
+            {
+                // On empêche l'admin de se supprimer lui-même !
+                if (currentUserId == id)
+                {
+                    return BadRequest("Vous ne pouvez pas supprimer votre propre compte administrateur.");
+                }
+            }
+
+            // 3. Suppression
+            _context.Users.Remove(userToDelete);
+            await _context.SaveChangesAsync();
+
+            return Ok(new { message = $"L'utilisateur {userToDelete.Username} a été supprimé avec succès." });
         }
     }
 }

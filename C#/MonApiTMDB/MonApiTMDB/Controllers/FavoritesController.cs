@@ -11,7 +11,7 @@ namespace MonApiTMDB.Controllers
 {
     [ApiController]
     [Route("api/v1/[controller]")]
-    [Authorize] // Il faut être connecté pour gérer ses favoris
+    [Authorize]
     public class FavoritesController : ControllerBase
     {
         private readonly AppDbContext _context;
@@ -23,111 +23,107 @@ namespace MonApiTMDB.Controllers
             _tmdbService = tmdbService;
         }
 
-        // ==============================================================
-        // AJOUTER OU RETIRER (TOGGLE)
-        // C'est ici que la magie "Récupérer puis Ajouter" opère
-        // ==============================================================
+        // ==========================================
+        // 1. AJOUTER (Avec détails complets)
+        // ==========================================
         [HttpPost("toggle")]
         public async Task<ActionResult> ToggleFavorite([FromBody] FavoriteDto request)
         {
-            // 1. Qui est connecté ? (On récupère l'ID depuis le Token JWT)
             var userIdString = User.FindFirst(ClaimTypes.NameIdentifier)?.Value;
-            
-            // Conversion String -> Int (car votre User.Id est un int)
-            if (string.IsNullOrEmpty(userIdString) || !int.TryParse(userIdString, out int userId))
-            {
-                return Unauthorized("Utilisateur non identifié.");
-            }
+            if (!int.TryParse(userIdString, out int userId)) return Unauthorized();
 
-            // 2. Validation simple
-            if (request.MediaType != "movie" && request.MediaType != "tv")
-                return BadRequest("Le type doit être 'movie' ou 'tv'.");
-
-            // 3. Vérifier si le favori est DÉJÀ en base
-            var existingFav = await _context.Favorites
+            var existing = await _context.Favorites
                 .FirstOrDefaultAsync(f => f.UserId == userId && f.MediaId == request.MediaId && f.MediaType == request.MediaType);
 
-            if (existingFav != null)
+            if (existing != null)
             {
-                // --- CAS A : IL EXISTE -> ON LE SUPPRIME ---
-                _context.Favorites.Remove(existingFav);
+                _context.Favorites.Remove(existing);
                 await _context.SaveChangesAsync();
                 return Ok(new { message = "Retiré des favoris", isFavorite = false });
             }
             else
             {
-                // --- CAS B : IL N'EXISTE PAS -> ON L'AJOUTE ---
-                
-                string title = "Inconnu";
-                string poster = "";
-
-                // ÉTAPE CLÉ : On va chercher les infos chez TMDB
-                if (request.MediaType == "movie")
-                {
-                    var movie = await _tmdbService.GetMovieDetailAsync(request.MediaId);
-                    if (movie == null) return NotFound("Film introuvable sur TMDB.");
-                    
-                    title = movie.Title;
-                    poster = movie.PosterPath;
-                }
-                else // tv
-                {
-                    var show = await _tmdbService.GetTvShowDetailAsync(request.MediaId);
-                    if (show == null) return NotFound("Série introuvable sur TMDB.");
-                    
-                    title = show.Name;
-                    poster = show.PosterPath;
-                }
-
-                // On crée l'objet Favori avec les données récupérées
+                // Préparation des données à stocker
                 var newFav = new Favorite
                 {
                     UserId = userId,
                     MediaId = request.MediaId,
                     MediaType = request.MediaType,
-                    Title = title,       // Stocké pour affichage rapide
-                    PosterPath = poster, // Stocké pour affichage rapide
                     AddedAt = DateTime.UtcNow
                 };
 
-                // On sauvegarde en base
+                // On récupère TOUT chez TMDB
+                if (request.MediaType == "movie")
+                {
+                    var m = await _tmdbService.GetMovieDetailAsync(request.MediaId);
+                    if (m == null) return NotFound("Film introuvable.");
+                    
+                    newFav.Title = m.Title;
+                    newFav.PosterPath = m.PosterPath;
+                    newFav.Overview = m.Overview;           // <--- Nouveau
+                    newFav.BackdropPath = m.BackdropPath;   // <--- Nouveau
+                    newFav.VoteAverage = m.VoteAverage;     // <--- Nouveau
+                    newFav.ReleaseDate = m.ReleaseDate;     // <--- Nouveau
+                }
+                else // tv
+                {
+                    var s = await _tmdbService.GetTvShowDetailAsync(request.MediaId);
+                    if (s == null) return NotFound("Série introuvable.");
+
+                    newFav.Title = s.Name;
+                    newFav.PosterPath = s.PosterPath;
+                    newFav.Overview = s.Overview;
+                    newFav.BackdropPath = s.BackdropPath;
+                    newFav.VoteAverage = s.VoteAverage;
+                    newFav.ReleaseDate = s.FirstAirDate;
+                }
+
                 _context.Favorites.Add(newFav);
                 await _context.SaveChangesAsync();
 
-                return Ok(new { message = "Ajouté aux favoris", isFavorite = true, title = title });
+                return Ok(new { message = "Ajouté aux favoris", isFavorite = true, title = newFav.Title });
             }
         }
 
-        // ==============================================================
-        // LISTER MES FAVORIS
-        // ==============================================================
+        // ==========================================
+        // 2. LISTE PAGINÉE (Format TMDB Exact)
+        // URL : GET api/v1/Favorites?page=1&type=movie
+        // ==========================================
         [HttpGet]
-        public async Task<ActionResult<IEnumerable<Favorite>>> GetMyFavorites()
+        public async Task<ActionResult> GetMyFavorites([FromQuery] int page = 1, [FromQuery] string type = "all")
         {
             var userIdString = User.FindFirst(ClaimTypes.NameIdentifier)?.Value;
             if (!int.TryParse(userIdString, out int userId)) return Unauthorized();
 
-            var favorites = await _context.Favorites
-                .Where(f => f.UserId == userId)
+            int pageSize = 20; // Standard TMDB
+
+            // 1. Filtrer la requête (User + Type optionnel)
+            var query = _context.Favorites.Where(f => f.UserId == userId);
+            
+            if (type == "movie") query = query.Where(f => f.MediaType == "movie");
+            else if (type == "tv") query = query.Where(f => f.MediaType == "tv");
+
+            // 2. Compter le total pour la pagination
+            int totalResults = await query.CountAsync();
+            int totalPages = (int)Math.Ceiling((double)totalResults / pageSize);
+
+            // 3. Récupérer la page demandée
+            var results = await query
                 .OrderByDescending(f => f.AddedAt)
+                .Skip((page - 1) * pageSize)
+                .Take(pageSize)
                 .ToListAsync();
 
-            return Ok(favorites);
-        }
+            // 4. Construire la réponse JSON exacte
+            var response = new
+            {
+                page = page,
+                results = results, // Contient maintenant Overview, Backdrop, etc.
+                total_pages = totalPages,
+                total_results = totalResults
+            };
 
-        // ==============================================================
-        // VÉRIFIER SI DÉJÀ FAVORI (Pour colorer le cœur)
-        // ==============================================================
-        [HttpGet("check")]
-        public async Task<ActionResult<bool>> CheckFavorite([FromQuery] int mediaId, [FromQuery] string mediaType)
-        {
-            var userIdString = User.FindFirst(ClaimTypes.NameIdentifier)?.Value;
-            if (!int.TryParse(userIdString, out int userId)) return Ok(false);
-
-            var exists = await _context.Favorites
-                .AnyAsync(f => f.UserId == userId && f.MediaId == mediaId && f.MediaType == mediaType);
-
-            return Ok(exists);
+            return Ok(response);
         }
     }
 }

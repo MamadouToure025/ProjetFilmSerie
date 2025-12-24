@@ -2,10 +2,12 @@ namespace MonApiTMDB.Models.Dtos
 {
     public class UserDto
     {
-        public string Id { get; set; }
-        public string UserName { get; set; }
-        public string Email { get; set; }
-        public IList<string> Roles { get; set; } // Pour voir si c'est un Admin ou User
+        public int Id { get; set; }
         
+        // Ces deux lignes sont obligatoires pour enlever le rouge à gauche
+        public string Username { get; set; } 
+        public string Role { get; set; }
+
+        public string Email { get; set; }
     }
 }

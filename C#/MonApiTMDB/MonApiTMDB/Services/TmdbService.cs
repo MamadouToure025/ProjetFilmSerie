@@ -3,8 +3,14 @@ using MonApiTMDB.Models;
 using Microsoft.Extensions.Configuration;
 using System.Text.Json;
 using MonApiTMDB.Models.Dtos;
-
+using System.Net;                 // Nécessaire pour HttpStatusCode
+using System.Net.Http;            // Nécessaire pour HttpRequestException
+using System.Net.Http.Json;       // Nécessaire pour GetFromJsonAsync
+using MonApiTMDB.Models.Dtos;
+using MonApiTMDB.Models; // <--- Indispensable
+using System.Net;        // Pour HttpStatusCode
 namespace MonApiTMDB.Services
+
 {
     public class TmdbService : ITmdbService
     {
@@ -46,6 +52,7 @@ namespace MonApiTMDB.Services
             var url = $"{_baseUrl}/trending/tv/week?api_key={_apiKey}&language={language}";
             return await SendRequestAsync<TvShowResponse>(url);
         }
+       
 
         // ---------------------------------------------------------
 // 4. TENDANCES PERSONNES (Trending People)
@@ -99,6 +106,7 @@ namespace MonApiTMDB.Services
             var response = await SendRequestAsync<GenreListResponse>(url);
             return response?.Genres ?? Enumerable.Empty<Genre>();
         }
+    
 
         // ---------------------------------------------------------
         // 9. RECHERCHE DE FILMS PAR NOM
@@ -131,10 +139,27 @@ namespace MonApiTMDB.Services
             return await SendRequestAsync<MovieCredits>(url);
         }
         
-
+      
         // ---------------------------------------------------------
         // 12. RECHERCHE DE PERSONNE
         // ---------------------------------------------------------
+        public async Task<CollectionDetail?> GetCollectionDetailsAsync(int collectionId, string language = "fr-FR")
+        {
+            // URL Complète vers l'endpoint Collection de TMDB
+            var url = $"https://api.themoviedb.org/3/collection/{collectionId}?api_key={_apiKey}&language={language}";
+
+            try
+            {
+                // On récupère et on désérialise en CollectionDetail
+                return await _httpClient.GetFromJsonAsync<CollectionDetail>(url);
+            }
+            catch (HttpRequestException ex) when (ex.StatusCode == System.Net.HttpStatusCode.NotFound)
+            {
+                // Si l'ID de collection n'existe pas, on retourne null proprement
+                return null;
+            }
+        }
+
         public async Task<ActorsResponse?> SearchPersonAsync(string query, int page = 1, string language = "fr-FR")
         {
             var encodedQuery = Uri.EscapeDataString(query);
@@ -142,38 +167,75 @@ namespace MonApiTMDB.Services
             return await SendRequestAsync<ActorsResponse>(url);
         }
 
-        // ---------------------------------------------------------
-        // 13. DÉTAILS D'UNE PERSONNE
-        // ---------------------------------------------------------
-        public async Task<PersonDetail?> GetPersonDetailAsync(int personId, string language = "fr-FR")
+        public async Task<PersonCreditsResponse?> GetPersonCreditsAsync(int personId, string language = "fr-FR")
         {
-            var urlInfo = $"{_baseUrl}/person/{personId}?api_key={_apiKey}&language={language}";
-            var person = await SendRequestAsync<PersonDetail>(urlInfo);
+            // CORRECTION : On utilise la variable {language} au lieu de "fr-FR" en dur
+            var url = $"https://api.themoviedb.org/3/person/{personId}/combined_credits?api_key={_apiKey}&language={language}";
+
+            try
+            {
+                return await _httpClient.GetFromJsonAsync<PersonCreditsResponse>(url);
+            }
+            catch (HttpRequestException ex) when (ex.StatusCode == System.Net.HttpStatusCode.NotFound)
+            {
+                return null;
+            }
+        }
+
+
+   // ---------------------------------------------------------
+        // 13. ACTEURS - MÉTHODES SPÉCIALES
+        // ---------------------------------------------------------
+
+
+
+// 1. RECHERCHER UN ACTEUR
+        public async Task<ActorsResponse?> SearchActorsAsync(string query)
+        {
+            var url = $"https://api.themoviedb.org/3/search/person?api_key={_apiKey}&language=fr-FR&query={query}";
+            return await _httpClient.GetFromJsonAsync<ActorsResponse>(url);
+        }
+
+// 2. RÉCUPÉRER LES DÉTAILS COMPLETS (Infos + Films)
+        public async Task<PersonDetail?> GetPersonDetailAsync(int personId)
+        {
+            // A. On récupère les infos personnelles (Bio, Date de naissance...)
+            var urlInfo = $"https://api.themoviedb.org/3/person/{personId}?api_key={_apiKey}&language=fr-FR";
+    
+            PersonDetail? person = null;
+            try
+            {
+                person = await _httpClient.GetFromJsonAsync<PersonDetail>(urlInfo);
+            }
+            catch (HttpRequestException ex) when (ex.StatusCode == HttpStatusCode.NotFound)
+            {
+                return null; // Acteur introuvable
+            }
+
             if (person == null) return null;
 
-            var urlCredits = $"{_baseUrl}/person/{personId}/movie_credits?api_key={_apiKey}&language={language}";
-            var response = await _httpClient.GetAsync(urlCredits);
-            if (response.IsSuccessStatusCode)
+            // B. On récupère sa filmographie (Combined Credits = Films + Séries)
+            var urlCredits = $"https://api.themoviedb.org/3/person/{personId}/combined_credits?api_key={_apiKey}&language=fr-FR";
+    
+            try 
             {
-                using var doc = JsonDocument.Parse(await response.Content.ReadAsStringAsync());
-                if (doc.RootElement.TryGetProperty("cast", out var castArray))
+                var creditsResponse = await _httpClient.GetFromJsonAsync<PersonCreditsResponse>(urlCredits);
+                if (creditsResponse != null)
                 {
-                    foreach (var item in castArray.EnumerateArray())
-                    {
-                        person.Credits.Add(new Movie
-                        {
-                            Id = item.GetProperty("id").GetInt32(),
-                            Title = item.TryGetProperty("title", out var t) ? t.GetString() : null,
-                            PosterPath = item.TryGetProperty("poster_path", out var p) ? p.GetString() : null,
-                            ReleaseDate = item.TryGetProperty("release_date", out var r) ? r.GetString() : null
-                        });
-                    }
+                    // On trie par date (du plus récent au plus vieux)
+                    person.Credits = creditsResponse.Cast
+                        .OrderByDescending(c => c.DisplayDate)
+                        .ToList();
                 }
             }
+            catch 
+            { 
+                // Si l'API crédits échoue, on renvoie quand même l'acteur mais sans films
+            }
+
             return person;
         }
 
-   
         // ---------------------------------------------------------
         // 15. COLLECTIONS
         // ---------------------------------------------------------
@@ -184,11 +246,7 @@ namespace MonApiTMDB.Services
             return await SendRequestAsync<CollectionResponse>(url);
         }
 
-        public Task<CollectionDetail?> GetCollectionDetailsAsync(int collectionId, string language = "fr-FR")
-        {
-            // Implémentation basique si nécessaire
-            throw new NotImplementedException();
-        }
+       
 // ---------------------------------------------------------
 // RECHERCHE DE SÉRIES TV
 // ---------------------------------------------------------
@@ -268,8 +326,27 @@ namespace MonApiTMDB.Services
             var url = $"{_baseUrl}/tv/{tvShowId}/credits?api_key={_apiKey}&language={language}";
             return await _httpClient.GetFromJsonAsync<TvShowCredits>(url);
         }
-
         
+        
+        // ---------------------------------------------------------
+        // DÉTAILS D'UNE SAISON DE SÉRIE TV
+        // ---------------------------------------------------------
+
+        public async Task<TvSeasonDetail?> GetTvSeasonAsync(int seriesId, int seasonNumber)
+        {
+            // CORRECTION : Ajout du début de l'URL "https://api.themoviedb.org/3/"
+            var url = $"https://api.themoviedb.org/3/tv/{seriesId}/season/{seasonNumber}?api_key={_apiKey}&language=fr-FR";
+
+            try
+            {
+                return await _httpClient.GetFromJsonAsync<TvSeasonDetail>(url);
+            }
+            catch (HttpRequestException ex) when (ex.StatusCode == System.Net.HttpStatusCode.NotFound)
+            {
+                // Si la saison n'existe pas, on renvoie null
+                return null;
+            }
+        }
         // ==============================================================
     // 1. GESTION DES SESSIONS (AUTH)
     // ==============================================================

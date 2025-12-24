@@ -12,5 +12,7 @@ namespace MonApiTMDB.Data
 
         public DbSet<User> Users { get; set; }
         public DbSet<Favorite> Favorites { get; set; }
+        public DbSet<RatingUser> RatingUsers { get; set; }
+        public DbSet<WatchLater> WatchLaters { get; set; }
     }
 }
