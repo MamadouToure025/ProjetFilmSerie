@@ -1,111 +1,131 @@
 using System.Security.Claims;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
+using Microsoft.EntityFrameworkCore; // Nécessaire pour FirstOrDefaultAsync
 using MonApiTMDB.Data;
+using MonApiTMDB.Models;
 using MonApiTMDB.Models.Dtos;
 using MonApiTMDB.Services;
-// Alias pour éviter le conflit entre votre User BDD et le User système
+
+// Alias pour éviter le conflit entre votre classe User (BDD) et la propriété User (Controller)
 using UserEntity = MonApiTMDB.Models.User; 
 
-namespace MonApiTMDB.Controllers;
-
-[ApiController]
-[Route("api/v1/[controller]")]
-public class AuthController : ControllerBase
+namespace MonApiTMDB.Controllers
 {
-    private readonly TokenService _tokenService;
-    private readonly AppDbContext _context;
-
-    public AuthController(TokenService tokenService, AppDbContext context)
+    [ApiController]
+    [Route("api/v1/[controller]")]
+    public class AuthController : ControllerBase
     {
-        _tokenService = tokenService;
-        _context = context;
-    }
+        private readonly TokenService _tokenService;
+        private readonly AppDbContext _context;
 
-    // ==========================================
-    // 1. INSCRIPTION (Register)
-    // ==========================================
-    [HttpPost("Register")]
-    [AllowAnonymous]
-    public IActionResult Register([FromBody] RegisterRequest request)
-    {
-        // 1. Vérifier si l'utilisateur existe déjà (par email ou username)
-        if (_context.Users.Any(u => u.Email == request.Email || u.Username == request.Username))
+        public AuthController(TokenService tokenService, AppDbContext context)
         {
-            return BadRequest("Cet email ou ce pseudo est déjà utilisé.");
+            _tokenService = tokenService;
+            _context = context;
         }
 
-        // 2. Créer le nouvel utilisateur
-        var newUser = new UserEntity
+        // ==========================================
+        // 1. INSCRIPTION (Register)
+        // ==========================================
+        [HttpPost("register")]
+        public async Task<IActionResult> Register(RegisterRequest request)
         {
-            Username = request.Username,
-            Email = request.Email,
-            Password = request.Password, // ⚠️ Note: En production, il faudrait hacher le mot de passe ici !
-            Role = "User" // Par défaut, tout le monde est simple "User"
-        };
+            // A. Vérifier si Email OU Username existe déjà
+            // C'est important de vérifier les deux pour éviter les doublons
+            bool exists = await _context.Users.AnyAsync(u => u.Email == request.Email || u.Username == request.Username);
+            
+            if (exists)
+            {
+                return BadRequest("Cet email ou ce nom d'utilisateur est déjà pris.");
+            }
 
-        // 3. Sauvegarder dans la base de données
-        _context.Users.Add(newUser);
-        _context.SaveChanges();
+            // B. HACHER LE MOT DE PASSE
+            // Sécurité : On transforme le mot de passe en chaîne incompréhensible
+            string passwordHash = BCrypt.Net.BCrypt.HashPassword(request.Password);
 
-        return Ok(new { Message = "Inscription réussie ! Vous pouvez maintenant vous connecter." });
-    }
+            // C. Créer l'objet User
+            var user = new UserEntity
+            {
+                Username = request.Username,
+                Email = request.Email,
+                Password = passwordHash // On stocke le hash !
+            };
 
-    // ==========================================
-    // 2. CONNEXION (Login)
-    // ==========================================
-    [HttpPost("Auth")]
-    [AllowAnonymous]
-    public IActionResult Auth([FromBody] LoginRequest loginRequest)
-    {
-        // Chercher l'utilisateur dans la BDD
-        var user = _context.Users.FirstOrDefault(u => u.Username == loginRequest.Username);
+            // D. Sauvegarder en BD
+            _context.Users.Add(user);
+            await _context.SaveChangesAsync();
 
-        // Vérifier le mot de passe
-        if (user == null || user.Password != loginRequest.Password)
+            // On ne renvoie pas l'objet user complet (sécurité), juste un message
+            return Ok(new { Message = "Inscription réussie !" });
+        }
+
+        // ==========================================
+        // 2. CONNEXION (Login)
+        // ==========================================
+        [HttpPost("login")] // J'ai renommé en "login" (plus standard), mais vous pouvez garder "Auth"
+        [AllowAnonymous]
+        public async Task<IActionResult> Login([FromBody] LoginRequest loginRequest)
         {
-            return Unauthorized(new { Message = "Pseudo ou mot de passe incorrect." });
+            // A. Chercher l'utilisateur (par Username ou Email selon votre logique)
+            // Ici on cherche par Username comme dans votre code précédent
+            var user = await _context.Users.FirstOrDefaultAsync(u => u.Username == loginRequest.Username);
+
+            if (user == null)
+            {
+                return Unauthorized(new { Message = "Pseudo ou mot de passe incorrect." });
+            }
+
+            // B. VÉRIFIER LE MOT DE PASSE (CORRECTION MAJEURE)
+            // On ne fait PAS : user.Password == loginRequest.Password
+            // On utilise BCrypt pour comparer le mot de passe clair avec le hash
+            bool isPasswordValid = BCrypt.Net.BCrypt.Verify(loginRequest.Password, user.Password);
+
+            if (!isPasswordValid)
+            {
+                return Unauthorized(new { Message = "Pseudo ou mot de passe incorrect." });
+            }
+            
+            // C. Générer le Token JWT
+            var tokenString = _tokenService.GenerateToken(user);
+            
+            // D. Créer le Cookie (Optionnel si vous utilisez le Header Authorization)
+            Response.Cookies.Append("AuthToken", tokenString, new CookieOptions
+            {
+                HttpOnly = true,
+                Secure = true, // Mettre à false si vous testez en HTTP sans certificat
+                SameSite = SameSiteMode.Strict,
+                Expires = DateTime.Now.AddMinutes(60)
+            });
+
+            return Ok(new { Message = "Connexion réussie.", Token = tokenString });
+        }
+
+        // ==========================================
+        // 3. VERIFICATION (IsConnected)
+        // ==========================================
+        [Authorize] 
+        [HttpGet("IsConnected")] 
+        public IActionResult IsConnected()
+        {
+            return Ok(new
+            {
+                Status = "Connecté",
+                Id = User.FindFirst(ClaimTypes.NameIdentifier)?.Value, 
+                Username = User.Identity?.Name,
+                Email = User.FindFirst(ClaimTypes.Email)?.Value,
+                Role = User.FindFirst(ClaimTypes.Role)?.Value
+            }); 
         }
         
-        // Générer le Token
-        var tokenString = _tokenService.GenerateToken(user);
-        
-        // Créer le Cookie
-        Response.Cookies.Append("AuthToken", tokenString, new CookieOptions
+        // ==========================================
+        // 4. DECONNEXION (Logout)
+        // ==========================================
+        [HttpPost("Logout")]
+        public IActionResult Logout()
         {
-            HttpOnly = true,
-            Secure = true, 
-            SameSite = SameSiteMode.Strict,
-            Expires = DateTime.Now.AddMinutes(60)
-        });
-
-        return Ok(new { Message = "Connexion réussie.", Token = tokenString });
-    }
-
-    // ==========================================
-    // 3. VERIFICATION (IsConnected)
-    // ==========================================
-    [Authorize] 
-    [HttpGet("IsConnected")] 
-    public IActionResult IsConnected()
-    {
-        return Ok(new
-        {
-            Status = "Connecté",
-            Id = User.FindFirst(ClaimTypes.NameIdentifier)?.Value, 
-            Username = User.Identity?.Name,
-            Email = User.FindFirst(ClaimTypes.Email)?.Value,
-            Role = User.FindFirst(ClaimTypes.Role)?.Value
-        }); 
-    }
-    
-    // ==========================================
-    // 4. DECONNEXION (Logout)
-    // ==========================================
-    [HttpPost("Logout")]
-    public IActionResult Logout()
-    {
-        Response.Cookies.Delete("AuthToken");
-        return Ok(new { Message = "Déconnexion réussie." });
+            Response.Cookies.Delete("AuthToken");
+            return Ok(new { Message = "Déconnexion réussie." });
+        }
     }
 }
